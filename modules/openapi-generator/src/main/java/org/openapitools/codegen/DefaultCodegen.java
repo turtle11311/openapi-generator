@@ -58,7 +58,8 @@ import java.util.stream.Stream;
 
 import static org.openapitools.codegen.utils.StringUtils.*;
 
-public class DefaultCodegen implements CodegenConfig {
+public class
+DefaultCodegen implements CodegenConfig {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultCodegen.class);
 
     protected String inputSpec;
@@ -2480,9 +2481,21 @@ public class DefaultCodegen implements CodegenConfig {
 
         CodegenParameter bodyParam = null;
         RequestBody requestBody = operation.getRequestBody();
+
+        Boolean hasMultipartRelated = false;
+        if (requestBody != null && requestBody.getContent() != null) {
+            int contentSize = requestBody.getContent().keySet().size();
+            for(int i = 1; i <= contentSize; i++) {
+                String content = new ArrayList<>(requestBody.getContent().keySet()).get(i-1);
+                if ("multipart/related".equalsIgnoreCase(content))
+                    hasMultipartRelated = true;
+            }
+        }
+
         if (requestBody != null) {
             if ("application/x-www-form-urlencoded".equalsIgnoreCase(getContentType(requestBody)) ||
-                    "multipart/form-data".equalsIgnoreCase(getContentType(requestBody))) {
+                    "multipart/form-data".equalsIgnoreCase(getContentType(requestBody)) ||
+                    hasMultipartRelated) {
                 // process form parameters
                 formParams = fromRequestBodyToFormParameters(requestBody, imports);
                 for (CodegenParameter cp : formParams) {
@@ -4345,71 +4358,92 @@ public class DefaultCodegen implements CodegenConfig {
     public List<CodegenParameter> fromRequestBodyToFormParameters(RequestBody body, Set<String> imports) {
         List<CodegenParameter> parameters = new ArrayList<CodegenParameter>();
         LOGGER.debug("debugging fromRequestBodyToFormParameters= " + body);
-        Schema schema = ModelUtils.getSchemaFromRequestBody(body);
-        schema = ModelUtils.getReferencedSchema(this.openAPI, schema);
-        if (schema.getProperties() != null && !schema.getProperties().isEmpty()) {
-            Map<String, Schema> properties = schema.getProperties();
-            for (Map.Entry<String, Schema> entry : properties.entrySet()) {
-                CodegenParameter codegenParameter = CodegenModelFactory.newInstance(CodegenModelType.PARAMETER);
-                // key => property name
-                // value => property schema
-                String collectionFormat = null;
-                Schema s = entry.getValue();
-                // array of schema
-                if (ModelUtils.isArraySchema(s)) {
-                    final ArraySchema arraySchema = (ArraySchema) s;
-                    Schema inner = arraySchema.getItems();
-                    if (inner == null) {
-                        LOGGER.warn("warning! No inner type supplied for array parameter \"" + s.getName() + "\", using String");
-                        inner = new StringSchema().description("//TODO automatically added by openapi-generator due to missing iner type definition in the spec");
-                        arraySchema.setItems(inner);
-                    }
 
-                    codegenParameter = fromFormProperty(entry.getKey(), inner, imports);
-                    CodegenProperty codegenProperty = fromProperty("inner", inner);
-                    codegenParameter.items = codegenProperty;
-                    codegenParameter.mostInnerItems = codegenProperty.mostInnerItems;
-                    codegenParameter.baseType = codegenProperty.dataType;
-                    codegenParameter.isPrimitiveType = false;
-                    codegenParameter.isContainer = true;
-                    codegenParameter.isListContainer = true;
-                    codegenParameter.description = escapeText(s.getDescription());
-                    codegenParameter.dataType = getTypeDeclaration(s);
-                    if (codegenParameter.baseType != null && codegenParameter.enumName != null) {
-                        codegenParameter.datatypeWithEnum = codegenParameter.dataType.replace(codegenParameter.baseType, codegenParameter.enumName);
+        Collection<MediaType> mediaTypeCollection = body.getContent().values();
+        int mediaTypeCollectionSize = mediaTypeCollection.size();
+        Iterator<MediaType> mediaTypeIterator = mediaTypeCollection.iterator();
+        MediaType mediaType = null;
+        for(int i=0; i<mediaTypeCollectionSize; i++) {
+            mediaType = mediaTypeIterator.next();
+
+            Schema schema = mediaType.getSchema();
+            //Schema schema = ModelUtils.getSchemaFromRequestBody(body);
+            //schema = ModelUtils.getReferencedSchema(this.openAPI, schema);
+
+            if (schema.getProperties() != null && !schema.getProperties().isEmpty()) {
+                Map<String, Schema> properties = schema.getProperties();
+                for (Map.Entry<String, Schema> entry : properties.entrySet()) {
+                    CodegenParameter codegenParameter = CodegenModelFactory.newInstance(CodegenModelType.PARAMETER);
+                    // key => property name
+                    // value => property schema
+                    String collectionFormat = null;
+                    Schema s = entry.getValue();
+                    // array of schema
+                    if (ModelUtils.isArraySchema(s)) {
+                        final ArraySchema arraySchema = (ArraySchema) s;
+                        Schema inner = arraySchema.getItems();
+                        if (inner == null) {
+                            LOGGER.warn("warning! No inner type supplied for array parameter \"" + s.getName() + "\", using String");
+                            inner = new StringSchema().description("//TODO automatically added by openapi-generator due to missing iner type definition in the spec");
+                            arraySchema.setItems(inner);
+                        }
+
+                        codegenParameter = fromFormProperty(entry.getKey(), inner, imports);
+                        CodegenProperty codegenProperty = fromProperty("inner", inner);
+                        codegenParameter.items = codegenProperty;
+                        codegenParameter.mostInnerItems = codegenProperty.mostInnerItems;
+                        codegenParameter.baseType = codegenProperty.dataType;
+                        codegenParameter.isPrimitiveType = false;
+                        codegenParameter.isContainer = true;
+                        codegenParameter.isListContainer = true;
+                        codegenParameter.description = escapeText(s.getDescription());
+                        codegenParameter.dataType = getTypeDeclaration(s);
+                        if (codegenParameter.baseType != null && codegenParameter.enumName != null) {
+                            codegenParameter.datatypeWithEnum = codegenParameter.dataType.replace(codegenParameter.baseType, codegenParameter.enumName);
+                        } else {
+                            LOGGER.warn("Could not compute datatypeWithEnum from " + codegenParameter.baseType + ", " + codegenParameter.enumName);
+                        }
+                        //TODO fix collectformat for form parameters
+                        //collectionFormat = getCollectionFormat(s);
+                        // default to csv:
+                        codegenParameter.collectionFormat = StringUtils.isEmpty(collectionFormat) ? "csv" : collectionFormat;
+
+                        // set nullable
+                        setParameterNullable(codegenParameter, codegenProperty);
+
+                        // recursively add import
+                        while (codegenProperty != null) {
+                            imports.add(codegenProperty.baseType);
+                            codegenProperty = codegenProperty.items;
+                        }
+
+                    } else if (ModelUtils.isMapSchema(s)) {
+                        LOGGER.error("Map of form parameters not supported. Please report the issue to https://github.com/openapitools/openapi-generator if you need help.");
+                        continue;
                     } else {
-                        LOGGER.warn("Could not compute datatypeWithEnum from " + codegenParameter.baseType + ", " + codegenParameter.enumName);
-                    }
-                    //TODO fix collectformat for form parameters
-                    //collectionFormat = getCollectionFormat(s);
-                    // default to csv:
-                    codegenParameter.collectionFormat = StringUtils.isEmpty(collectionFormat) ? "csv" : collectionFormat;
-
-                    // set nullable
-                    setParameterNullable(codegenParameter, codegenProperty);
-
-                    // recursively add import
-                    while (codegenProperty != null) {
-                        imports.add(codegenProperty.baseType);
-                        codegenProperty = codegenProperty.items;
+                        codegenParameter = fromFormProperty(entry.getKey(), entry.getValue(), imports);
                     }
 
-                } else if (ModelUtils.isMapSchema(s)) {
-                    LOGGER.error("Map of form parameters not supported. Please report the issue to https://github.com/openapitools/openapi-generator if you need help.");
-                    continue;
-                } else {
-                    codegenParameter = fromFormProperty(entry.getKey(), entry.getValue(), imports);
-                }
+                    // Set 'required' flag defined in the schema element
+                    if (!codegenParameter.required && schema.getRequired() != null) {
+                        codegenParameter.required = schema.getRequired().contains(entry.getKey());
+                    }
 
-                // Set 'required' flag defined in the schema element
-                if (!codegenParameter.required && schema.getRequired() != null) {
-                    codegenParameter.required = schema.getRequired().contains(entry.getKey());
-                }
+                    Map<String, Encoding> encodingMap = mediaType.getEncoding();
+                    Encoding encoding = null;
+                    String contentType = null;
+                    if(encodingMap != null){
+                        encoding = encodingMap.get(entry.getKey());
+                        if(encoding != null) {
+                            contentType = encoding.getContentType();
+                            codegenParameter.contentType = contentType;
+                        }
+                    }
 
-                parameters.add(codegenParameter);
+                    parameters.add(codegenParameter);
+                }
             }
         }
-
         return parameters;
     }
 
