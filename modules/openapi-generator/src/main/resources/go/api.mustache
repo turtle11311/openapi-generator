@@ -79,6 +79,15 @@ func (a *{{{classname}}}Service) {{{nickname}}}(ctx context.Context{{#MultipleRe
 		{{/returnType}}
 	)
 
+    // contentTypeMap
+    {{#hasFormParams}}
+    contentTypeMap := map[string]string{
+    {{#formParams}}
+        "{{paramName}}": "{{contentType}}",
+    {{/formParams}}
+    }
+    {{/hasFormParams}}
+
 	// create path and map variables
 	localVarPath := a.client.cfg.BasePath + "{{{path}}}"{{#pathParams}}
 	localVarPath = strings.Replace(localVarPath, "{"+"{{baseName}}"+"}", fmt.Sprintf("%v", {{paramName}}), -1){{/pathParams}}
