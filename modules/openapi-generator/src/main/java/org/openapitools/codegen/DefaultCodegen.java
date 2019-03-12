@@ -1750,12 +1750,29 @@ public class DefaultCodegen implements CodegenConfig {
 
                         // includes child's properties (all, required) in allProperties, allRequired
                         addProperties(allProperties, allRequired, component);
+
+                        // Added by Roger for anyOf enum
+                        if (component.getEnum() != null && !component.getEnum().isEmpty()) {
+                            m.isEnum = true;
+                            // comment out below as allowableValues is not set in post processing model enum
+                            m.allowableValues = new HashMap<String, Object>();
+                            m.allowableValues.put("values", component.getEnum());
+                            if (ModelUtils.isStringSchema(component)) {
+                                m.dataType = getSchemaType(component);
+                                m.isString = Boolean.TRUE;
+                            }
+                        }
                     }
                     break; // at most one child only
                 }
             }
 
-            addVars(m, unaliasPropertySchema(properties), required, unaliasPropertySchema(allProperties), allRequired);
+            // Added by Roger for properties outside the anyOf/oneOf/allOf
+            if(schema.getProperties() != null){
+                addVars(m, unaliasPropertySchema(schema.getProperties()), schema.getRequired(), null, null);
+            } else {
+                addVars(m, unaliasPropertySchema(properties), required, unaliasPropertySchema(allProperties), allRequired);
+            }
 
             // end of code block for composed schema
         } else {
