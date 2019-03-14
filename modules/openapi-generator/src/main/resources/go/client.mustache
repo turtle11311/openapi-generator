@@ -190,20 +190,42 @@ func (c *APIClient) prepareRequest(
 			headerParams["Content-Type"] = contentType
 		}
 
-		if multipartRelatedCheck.MatchString(contentType) {
-			// Add some multipart infomation into postBody
-			headerParams["boundary"] = "xxxxx" // TODO: delete this
-			if headerParams["boundary"] == "" {
-				err = fmt.Errorf("boundary cannot be empty\n")
+		if strings.HasPrefix(headerParams["Content-Type"], "multipart/related") {
+			body = &bytes.Buffer{}
+			mpWriter := multipart.NewWriter(body)
+			headerParams["Content-Type"] = "multipart/related; boundary=" + mpWriter.Boundary()
+			headerParams["boundary"] = mpWriter.Boundary()
+
+			operationStructTypeOf := reflect.TypeOf(postBody).Elem()
+			operationStructValueOf := reflect.ValueOf(postBody).Elem()
+
+			for i := 0; i < operationStructValueOf.NumField(); i++ {
+				field := operationStructTypeOf.Field(i)
+				value := operationStructValueOf.Field(i)
+				// fmt.Printf("%s: %v (map:%s) = %v\n", field.Name, field.Type, ctMap[field.Name], value)
+
+				part := make(textproto.MIMEHeader)
+				partType := contentTypeMap[field.Name]
+				part.Set("Content-Type", partType)
+				writer, err := mpWriter.CreatePart(part)
+				if err != nil {
+					panic(err)
+				}
+
+				if partType == "application/json" {
+					json.NewEncoder(writer).Encode(value.Interface())
+				} else {
+					writer.Write(value.Bytes())
+				}
+			}
+
+			mpWriter.Close()
+			// fmt.Println(body.String())
+		} else {
+			body, err = setBody(postBody, contentType)
+			if err != nil {
 				return nil, err
 			}
-			postBody = MultipartInfo{Body: postBody, Boundary: headerParams["boundary"],
-				ContentTypeMap: contentTypeMap}
-		}
-
-		body, err = setBody(postBody, contentType)
-		if err != nil {
-			return nil, err
 		}
 	}
 
@@ -373,47 +395,6 @@ func reportError(format string, a ...interface{}) error {
 	return fmt.Errorf(format, a...)
 }
 
-// set Multipart/Related body
-func setMultipartRelatedBody(input MultipartInfo) (bodyBuf *bytes.Buffer, err error) {
-	opStruct := input.Body
-	boundary := input.Boundary
-	ctMap := input.ContentTypeMap
-
-	mpp := reflect.TypeOf(opStruct).Elem()
-	mpps := reflect.ValueOf(opStruct).Elem()
-	fmt.Println(boundary, ctMap)
-
-	bodyBuf = new(bytes.Buffer)
-	mpWriter := multipart.NewWriter(bodyBuf)
-	if err := mpWriter.SetBoundary(boundary); err != nil {
-		panic(err)
-	}
-
-	for i := 0; i < mpps.NumField(); i++ {
-		f := mpp.Field(i)
-		v := mpps.Field(i)
-		//fmt.Printf("%s: %v (map:%s) = %v\n", f.Name, f.Type, ctMap[f.Name], v)
-
-		part := make(textproto.MIMEHeader)
-		partType := ctMap[f.Name]
-		part.Set("Content-Type", partType)
-		writer, err := mpWriter.CreatePart(part)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Println(partType)
-		if partType == "application/json" {
-			json.NewEncoder(writer).Encode(v.Interface())
-		} else {
-			writer.Write(v.Bytes())
-		}
-	}
-	mpWriter.Close()
-	fmt.Println("========")
-	fmt.Println(bodyBuf.String())
-	return bodyBuf, nil
-}
-
 // Set request body from an interface{}
 func setBody(body interface{}, contentType string) (bodyBuf *bytes.Buffer, err error) {
 	if bodyBuf == nil {
@@ -432,8 +413,6 @@ func setBody(body interface{}, contentType string) (bodyBuf *bytes.Buffer, err e
 		err = json.NewEncoder(bodyBuf).Encode(body)
 	} else if xmlCheck.MatchString(contentType) {
 		xml.NewEncoder(bodyBuf).Encode(body)
-	} else if multipartRelatedCheck.MatchString(contentType) {
-		bodyBuf, err = setMultipartRelatedBody(body.(MultipartInfo))
 	}
 
 	if err != nil {
