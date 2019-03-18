@@ -27,6 +27,7 @@ import io.swagger.v3.oas.models.Paths;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
+import io.swagger.v3.oas.models.media.ComposedSchema;
 import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.parameters.Parameter;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
@@ -450,6 +451,43 @@ public class DefaultGenerator extends AbstractGenerator implements Generator {
                 models.put("classname", config.toModelName(name));
                 models.putAll(config.additionalProperties());
                 allProcessedModels.put(name, models);
+
+                // Add by Roger for building the model of allOf ComposeSchema in properties
+                if(schema.getProperties() != null){
+                    for (Object keyProperties : schema.getProperties().keySet()) {
+                        String keyPropertiesString = keyProperties.toString();
+                        Schema schemaProperties = (Schema) schema.getProperties().get(keyProperties);
+                        if(schemaProperties instanceof ComposedSchema) {
+                            ComposedSchema cs = (ComposedSchema) schemaProperties;
+                            // Check if allOf contains $ref and properties
+                            Boolean has$ref = false;
+                            Boolean hasProperties = false;
+                            if(cs.getAllOf() != null){
+                                List<String> names = new ArrayList<>();
+                                for (Schema s : cs.getAllOf()) {
+                                    if(s.get$ref() != null){
+                                        has$ref = true;
+                                    }
+                                    if(s.getProperties() != null){
+                                        hasProperties = true;
+                                    }
+                                }
+                            }
+                            if(has$ref && hasProperties){
+                                //TODO
+                                String newName = keyPropertiesString + name;
+                                Map<String, Schema> schemaPropertiesMap = new HashMap<>();
+                                schemaPropertiesMap.put(newName, cs);
+                                Map<String, Object> modelsProperties = processModels(config, schemaPropertiesMap);
+                                modelsProperties.put("classname", config.toModelName(newName));
+                                modelsProperties.putAll(config.additionalProperties());
+                                allProcessedModels.put(newName, modelsProperties);
+                            }
+                        }
+                    }
+                }
+               ////////////////////////////////// END //////////////////////////////////
+
             } catch (Exception e) {
                 throw new RuntimeException("Could not process model '" + name + "'" + ".Please make sure that your schema is correct!", e);
             }
