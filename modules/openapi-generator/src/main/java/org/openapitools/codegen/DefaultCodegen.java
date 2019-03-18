@@ -3547,6 +3547,31 @@ DefaultCodegen implements CodegenConfig {
                 LOGGER.warn("Please report the issue. There shouldn't be null property for " + key);
             } else {
                 final CodegenProperty cp = fromProperty(key, prop);
+
+                // Add by Roger for building the model of allOf ComposeSchema in properties
+                if(prop instanceof ComposedSchema){
+                    ComposedSchema cs = (ComposedSchema) prop;
+                    // Check if allOf contains $ref and properties
+                    Boolean has$ref = false;
+                    Boolean hasProperties = false;
+                    if(cs.getAllOf() != null){
+                        List<String> names = new ArrayList<>();
+                        for (Schema s : cs.getAllOf()) {
+                            if(s.get$ref() != null){
+                                has$ref = true;
+                            }
+                            if(s.getProperties() != null){
+                                hasProperties = true;
+                            }
+                        }
+                    }
+                    if(has$ref && hasProperties){
+                        //TODO
+                        cp.dataType = cp.dataType + m.getName();
+                    }
+                }
+                ////////////////////////////////// END //////////////////////////////////
+
                 cp.required = mandatory.contains(key);
                 m.hasRequired = m.hasRequired || cp.required;
                 m.hasOptional = m.hasOptional || !cp.required;
