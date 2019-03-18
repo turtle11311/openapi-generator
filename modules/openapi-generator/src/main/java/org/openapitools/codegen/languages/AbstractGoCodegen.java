@@ -133,6 +133,61 @@ public abstract class AbstractGoCodegen extends DefaultCodegen implements Codege
         return "interface{}"; // Fixed by Roger
     }
 
+    /**
+     * Return the name of the oneOf schema
+     *
+     * @param names          List of names
+     * @param composedSchema composed schema
+     * @return name of the oneOf schema
+     */
+    @Override
+    public String toOneOfName(List<String> names, ComposedSchema composedSchema) {
+        return "interface{}"; // Fixed by Roger
+    }
+
+    /**
+     * Add schema's properties to "properties" and "required" list
+     *
+     * @param properties all properties
+     * @param required   required property only
+     * @param schema     schema in which the properties will be added to the lists
+     */
+    @Override
+    protected void addProperties(Map<String, Schema> properties, List<String> required, Schema schema) {
+        if (schema instanceof ComposedSchema) {
+            ComposedSchema composedSchema = (ComposedSchema) schema;
+            if(composedSchema.getAllOf() != null){
+                for (Schema component : composedSchema.getAllOf()) {
+                    addProperties(properties, required, component);
+                }
+                return;
+            }
+
+            if(composedSchema.getProperties() == null){
+                if (composedSchema.getOneOf() != null) {
+                    throw new RuntimeException("Please report the issue: Cannot process oneOf (Composed Scheme) in addProperties: " + schema);
+                }
+
+                if (composedSchema.getAnyOf() != null) {
+                    throw new RuntimeException("Please report the issue: Cannot process anyOf (Composed Schema) in addProperties: " + schema);
+                }
+                return;
+            }
+        }
+
+        if (StringUtils.isNotBlank(schema.get$ref())) {
+            Schema interfaceSchema = ModelUtils.getReferencedSchema(this.openAPI, schema);
+            addProperties(properties, required, interfaceSchema);
+            return;
+        }
+        if (schema.getProperties() != null) {
+            properties.putAll(schema.getProperties());
+        }
+        if (schema.getRequired() != null) {
+            required.addAll(schema.getRequired());
+        }
+    }
+
     @Override
     public void processOpts() {
         super.processOpts();
