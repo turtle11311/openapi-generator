@@ -2476,7 +2476,10 @@ DefaultCodegen implements CodegenConfig {
 
         CodegenParameter bodyParam = null;
         RequestBody requestBody = operation.getRequestBody();
-        op.requestBodyRequired = requestBody.getRequired();
+        op.requestBodyRequired = false;
+        if(requestBody != null) {
+            op.requestBodyRequired = requestBody.getRequired();
+        }
 
         Boolean hasMultipartRelated = false;
         if (requestBody != null && requestBody.getContent() != null) {
