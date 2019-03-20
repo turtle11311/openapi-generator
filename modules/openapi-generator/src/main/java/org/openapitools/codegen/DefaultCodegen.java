@@ -3568,7 +3568,7 @@ DefaultCodegen implements CodegenConfig {
                     }
                     if(has$ref && hasProperties){
                         //TODO
-                        cp.dataType = cp.dataType + m.getName();
+                        cp.dataType = toModelName(cp.dataType + m.getName());
                     }
                 }
                 ////////////////////////////////// END //////////////////////////////////

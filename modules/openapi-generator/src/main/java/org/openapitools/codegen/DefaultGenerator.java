@@ -483,7 +483,7 @@ public class DefaultGenerator extends AbstractGenerator implements Generator {
                             }
                             if(has$ref && hasProperties){
                                 //TODO
-                                String newName = nameOf$ref + name;
+                                String newName = config.toModelName(nameOf$ref + name);
                                 Map<String, Schema> schemaPropertiesMap = new HashMap<>();
                                 schemaPropertiesMap.put(newName, cs);
                                 Map<String, Object> modelsProperties = processModels(config, schemaPropertiesMap);
