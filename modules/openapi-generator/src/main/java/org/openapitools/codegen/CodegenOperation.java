@@ -59,6 +59,7 @@ public class CodegenOperation {
     public String operationIdLowerCase; // for markdown documentation
     public String operationIdCamelCase; // for class names
     public String operationIdSnakeCase;
+    public Boolean requestBodyRequired;
 
     /**
      * Check if there's at least one parameter
@@ -247,7 +248,7 @@ public class CodegenOperation {
      *
      * @return true if path act as member
      */
-    private boolean isMultipleSuccessResponse() {
+    public boolean isMultipleSuccessResponse() {
         return responses.stream().filter(CodegenResponse::isSuccessResponse).count() > 1;
     }
 
@@ -256,7 +257,7 @@ public class CodegenOperation {
      *
      * @return true if request MediaType greater then 1
      */
-    private boolean isMultipleRequestMediaType() {
+    public boolean isMultipleRequestMediaType() {
         return consumes.size() > 1;
     }
 

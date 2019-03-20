@@ -65,9 +65,19 @@ type {{{nickname}}}Opts struct {
 {{/required}}
 {{/allParams}}
 }
-
 {{/hasOptionalParams}}
-func (a *{{{classname}}}Service) {{{nickname}}}(ctx context.Context{{#MultipleRequestMediaType}}, contentType string{{/MultipleRequestMediaType}}{{#hasParams}}, {{/hasParams}}{{#allParams}}{{#required}}{{paramName}} {{{dataType}}}{{#hasMore}}, {{/hasMore}}{{/required}}{{/allParams}}{{#hasOptionalParams}}localVarOptionals *{{{nickname}}}Opts{{/hasOptionalParams}}) ({{#returnType}}{{{returnType}}}, {{/returnType}}*http.Response, error) {
+
+{{#requestBodyRequired}}
+{{#hasBodyParam}}
+type Multipart{{{nickname}}} struct {
+{{#bodyParams}}
+    {{captialBaseName}} {{dataType}}
+{{/bodyParams}}
+}
+{{/hasBodyParam}}
+{{/requestBodyRequired}}
+
+func (a *{{{classname}}}Service) {{{nickname}}}(ctx context.Context{{#multipleRequestMediaType}}, contentType string{{/multipleRequestMediaType}}{{#hasParams}}, {{/hasParams}}{{#allParams}}{{#required}}{{paramName}} {{{dataType}}}{{#hasMore}}, {{/hasMore}}{{/required}}{{/allParams}}{{#hasOptionalParams}}localVarOptionals *{{{nickname}}}Opts{{/hasOptionalParams}}) ({{#returnType}}{{{returnType}}}, {{/returnType}}*http.Response, error) {
 	var (
 		localVarHttpMethod   = strings.ToUpper("{{httpMethod}}")
 		localVarPostBody     interface{}
@@ -78,15 +88,16 @@ func (a *{{{classname}}}Service) {{{nickname}}}(ctx context.Context{{#MultipleRe
 		localVarReturnValue  {{{returnType}}}
 		{{/returnType}}
 	)
-
-    // contentTypeMap
-    {{#hasFormParams}}
-    contentTypeMap := map[string]string{
-    {{#formParams}}
-        "{{paramName}}": "{{contentType}}",
-    {{/formParams}}
+	
+	// contentTypeMap
+	var contentTypeMap map[string]string 
+    {{#hasBodyParam}}
+    contentTypeMap = map[string]string{
+    {{#bodyParams}}
+        "{{captialBaseName}}": "{{contentType}}",
+    {{/bodyParams}}
     }
-    {{/hasFormParams}}
+    {{/hasBodyParam}}
 
 	// create path and map variables
 	localVarPath := a.client.cfg.BasePath + "{{{path}}}"{{#pathParams}}
@@ -159,17 +170,17 @@ func (a *{{{classname}}}Service) {{{nickname}}}(ctx context.Context{{#MultipleRe
     localVarHttpContentTypes := []string{<%#consumes%>"<%&mediaType%>"<%^-last%>, <%/-last%><%/consumes%>}
 <%={{ }}=%>
 
-{{#MultipleRequestMediaType}}
+{{#multipleRequestMediaType}}
 	// validate Content-Type
     if contains(localVarHttpContentTypes, contentType) {
         localVarHeaderParams["Content-Type"] = contentType
     } else {
         return {{#returnType}}localVarReturnValue, {{/returnType}}nil, reportError("%s is not valid Content-Type in {{{nickname}}}", contentType)
     }
-{{/MultipleRequestMediaType}}
-{{^MultipleRequestMediaType}}
+{{/multipleRequestMediaType}}
+{{^multipleRequestMediaType}}
     localVarHeaderParams["Content-Type"] = localVarHttpContentTypes[0] // use the first content type specified in 'consumes'
-{{/MultipleRequestMediaType}}
+{{/multipleRequestMediaType}}
 
 	// to determine the Accept header
 {{=<% %>=}}
@@ -181,6 +192,22 @@ func (a *{{{classname}}}Service) {{{nickname}}}(ctx context.Context{{#MultipleRe
 	if localVarHttpHeaderAccept != "" {
 		localVarHeaderParams["Accept"] = localVarHttpHeaderAccept
 	}
+
+{{#requestBodyRequired}}
+    // put values into multipartRelated structure
+    var multipart{{{nickname}}} Multipart{{{nickname}}}
+    _ = multipart{{{nickname}}}
+{{#hasBodyParam}}
+    if localVarHeaderParams["Content-Type"] == "multipart/related" {
+    {{#bodyParams}}
+    {{#required}}
+        multipart{{{nickname}}}.{{captialBaseName}} = {{baseName}}
+    {{/required}}
+    {{/bodyParams}}
+    }
+{{/hasBodyParam}}
+{{/requestBodyRequired}}
+
 {{#hasHeaderParams}}
 {{#headerParams}}
 	{{#required}}
@@ -198,23 +225,23 @@ func (a *{{{classname}}}Service) {{{nickname}}}(ctx context.Context{{#MultipleRe
 {{#isFile}}
 	localVarFormFileName = "{{baseName}}"
 {{#required}}
-	localVarFile := {{paramName}}
+	localVarFile{{baseName}} := {{paramName}}
 {{/required}}
 {{^required}}
-	var localVarFile {{dataType}}
+	var localVarFile{{baseName}} {{dataType}}
 	if localVarOptionals != nil && localVarOptionals.{{vendorExtensions.x-exportParamName}}.IsSet() {
 		localVarFileOk := false
-		localVarFile, localVarFileOk = localVarOptionals.{{vendorExtensions.x-exportParamName}}.Value().({{dataType}})
+		localVarFile{{baseName}}, localVarFileOk = localVarOptionals.{{vendorExtensions.x-exportParamName}}.Value().({{dataType}})
 		if !localVarFileOk {
 				return {{#returnType}}localVarReturnValue, {{/returnType}}nil, reportError("{{paramName}} should be {{dataType}}")
 		}
 	}
 {{/required}}
-	if localVarFile != nil {
-		fbs, _ := ioutil.ReadAll(localVarFile)
+	if localVarFile{{baseName}} != nil {
+		fbs, _ := ioutil.ReadAll(localVarFile{{baseName}})
 		localVarFileBytes = fbs
-		localVarFileName = localVarFile.Name()
-		localVarFile.Close()
+		localVarFileName = localVarFile{{baseName}}.Name()
+		localVarFile{{baseName}}.Close()
 	}
 {{/isFile}}
 {{^isFile}}
@@ -252,6 +279,11 @@ func (a *{{{classname}}}Service) {{{nickname}}}(ctx context.Context{{#MultipleRe
 {{/required}}
 {{/bodyParams}}
 {{/hasBodyParam}}
+{{#requestBodyRequired}}
+	// point to the multipart struct object
+	localVarPostBody = &multipart{{{nickname}}}
+{{/requestBodyRequired}}
+
 {{#authMethods}}
 {{#isApiKey}}
 {{^isKeyInCookie}}
@@ -275,7 +307,7 @@ func (a *{{{classname}}}Service) {{{nickname}}}(ctx context.Context{{#MultipleRe
 {{/isKeyInCookie}}
 {{/isApiKey}}
 {{/authMethods}}
-	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFormFileName, localVarFileName, localVarFileBytes)
+	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFormFileName, localVarFileName, localVarFileBytes, contentTypeMap)
 	if err != nil {
 		return {{#returnType}}localVarReturnValue, {{/returnType}}nil, err
 	}
@@ -300,14 +332,14 @@ func (a *{{{classname}}}Service) {{{nickname}}}(ctx context.Context{{#MultipleRe
     {{#responses}}
     {{#dataType}}
     case {{{code}}}:
-    {{#SuccessResponse}}
+    {{#successResponse}}
         err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
         if err != nil {
             apiError.error = err.Error()
         }
         return {{#returnType}}localVarReturnValue, {{/returnType}}localVarHttpResponse, apiError
-    {{/SuccessResponse}}
-    {{^SuccessResponse}}
+    {{/successResponse}}
+    {{^successResponse}}
         var v {{{dataType}}}
         err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
         if err != nil {
@@ -316,7 +348,7 @@ func (a *{{{classname}}}Service) {{{nickname}}}(ctx context.Context{{#MultipleRe
         }
         apiError.model = v
         return {{#returnType}}localVarReturnValue, {{/returnType}}localVarHttpResponse, apiError
-    {{/SuccessResponse}}
+    {{/successResponse}}
     {{/dataType}}
     {{/responses}}
     default:

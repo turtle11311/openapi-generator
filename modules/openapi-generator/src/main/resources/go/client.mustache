@@ -11,6 +11,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -27,6 +28,7 @@ import (
 var (
 	jsonCheck = regexp.MustCompile("(?i:[application|text]/json)")
 	xmlCheck  = regexp.MustCompile("(?i:[application|text]/xml)")
+	multipartRelatedCheck = regexp.MustCompile("(?i:multipart/related)")
 )
 
 // APIClient manages communication with the {{appName}} API v{{version}}
@@ -48,6 +50,12 @@ type APIClient struct {
 
 type service struct {
 	client *APIClient
+}
+
+type MultipartInfo struct {
+	Body interface{}
+	Boundary string
+	ContentTypeMap map[string]string
 }
 
 // NewAPIClient creates a new API client. Requires a userAgent string describing your application.
@@ -169,7 +177,8 @@ func (c *APIClient) prepareRequest(
 	formParams url.Values,
 	formFileName string,
 	fileName string,
-	fileBytes []byte) (localVarRequest *http.Request, err error) {
+	fileBytes []byte,
+	contentTypeMap map[string]string) (localVarRequest *http.Request, err error) {
 
 	var body *bytes.Buffer
 
@@ -179,6 +188,17 @@ func (c *APIClient) prepareRequest(
 		if contentType == "" {
 			contentType = detectContentType(postBody)
 			headerParams["Content-Type"] = contentType
+		}
+
+		if multipartRelatedCheck.MatchString(contentType) {
+			// Add some multipart infomation into postBody
+			headerParams["boundary"] = "xxxxx" // TODO: delete this
+			if headerParams["boundary"] == "" {
+				err = fmt.Errorf("boundary cannot be empty\n")
+				return nil, err
+			}
+			postBody = MultipartInfo{Body: postBody, Boundary: headerParams["boundary"],
+				ContentTypeMap: contentTypeMap}
 		}
 
 		body, err = setBody(postBody, contentType)
@@ -353,6 +373,47 @@ func reportError(format string, a ...interface{}) error {
 	return fmt.Errorf(format, a...)
 }
 
+// set Multipart/Related body
+func setMultipartRelatedBody(input MultipartInfo) (bodyBuf *bytes.Buffer, err error) {
+	opStruct := input.Body
+	boundary := input.Boundary
+	ctMap := input.ContentTypeMap
+
+	mpp := reflect.TypeOf(opStruct).Elem()
+	mpps := reflect.ValueOf(opStruct).Elem()
+	fmt.Println(boundary, ctMap)
+
+	bodyBuf = new(bytes.Buffer)
+	mpWriter := multipart.NewWriter(bodyBuf)
+	if err := mpWriter.SetBoundary(boundary); err != nil {
+		panic(err)
+	}
+
+	for i := 0; i < mpps.NumField(); i++ {
+		f := mpp.Field(i)
+		v := mpps.Field(i)
+		//fmt.Printf("%s: %v (map:%s) = %v\n", f.Name, f.Type, ctMap[f.Name], v)
+
+		part := make(textproto.MIMEHeader)
+		partType := ctMap[f.Name]
+		part.Set("Content-Type", partType)
+		writer, err := mpWriter.CreatePart(part)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(partType)
+		if partType == "application/json" {
+			json.NewEncoder(writer).Encode(v.Interface())
+		} else {
+			writer.Write(v.Bytes())
+		}
+	}
+	mpWriter.Close()
+	fmt.Println("========")
+	fmt.Println(bodyBuf.String())
+	return bodyBuf, nil
+}
+
 // Set request body from an interface{}
 func setBody(body interface{}, contentType string) (bodyBuf *bytes.Buffer, err error) {
 	if bodyBuf == nil {
@@ -371,6 +432,8 @@ func setBody(body interface{}, contentType string) (bodyBuf *bytes.Buffer, err e
 		err = json.NewEncoder(bodyBuf).Encode(body)
 	} else if xmlCheck.MatchString(contentType) {
 		xml.NewEncoder(bodyBuf).Encode(body)
+	} else if multipartRelatedCheck.MatchString(contentType) {
+		bodyBuf, err = setMultipartRelatedBody(body.(MultipartInfo))
 	}
 
 	if err != nil {
