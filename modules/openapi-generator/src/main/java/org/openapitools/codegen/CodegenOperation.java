@@ -242,6 +242,24 @@ public class CodegenOperation {
         return ("/{" + id + "}").equals(pathWithoutBaseName());
     }
 
+    /**
+     * Check if response
+     *
+     * @return true if path act as member
+     */
+    private boolean isMultipleSuccessResponse() {
+        return responses.stream().filter(CodegenResponse::isSuccessResponse).count() > 1;
+    }
+
+    /**
+     * Check if multiple request MediaType
+     *
+     * @return true if request MediaType greater then 1
+     */
+    private boolean isMultipleRequestMediaType() {
+        return consumes.size() > 1;
+    }
+
     @Override
     public String toString() {
         return String.format(Locale.ROOT, "%s(%s)", baseName, path);
