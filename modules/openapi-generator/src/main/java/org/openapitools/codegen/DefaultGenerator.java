@@ -452,7 +452,7 @@ public class DefaultGenerator extends AbstractGenerator implements Generator {
                 models.putAll(config.additionalProperties());
                 allProcessedModels.put(name, models);
 
-                // Add by Roger for building the model of allOf ComposeSchema in properties
+                // Added by Roger for building the model of allOf ComposeSchema in properties
                 if(schema.getProperties() != null){
                     for (Object keyProperties : schema.getProperties().keySet()) {
                         String keyPropertiesString = keyProperties.toString();
@@ -462,11 +462,15 @@ public class DefaultGenerator extends AbstractGenerator implements Generator {
                             // Check if allOf contains $ref and properties
                             Boolean has$ref = false;
                             Boolean hasProperties = false;
+                            String nameOf$ref = "";
                             if(cs.getAllOf() != null){
-                                List<String> names = new ArrayList<>();
                                 for (Schema s : cs.getAllOf()) {
                                     if(s.get$ref() != null){
+                                        // Find $ref name
                                         has$ref = true;
+                                        Schema unaliasSchema = ModelUtils.unaliasSchema(this.openAPI, s);
+                                        String schemaName = ModelUtils.getSimpleRef(unaliasSchema.get$ref());
+                                        nameOf$ref = config.toModelName(schemaName);
                                     }
                                     if(s.getProperties() != null){
                                         hasProperties = true;
@@ -475,7 +479,7 @@ public class DefaultGenerator extends AbstractGenerator implements Generator {
                             }
                             if(has$ref && hasProperties){
                                 //TODO
-                                String newName = keyPropertiesString + name;
+                                String newName = nameOf$ref + name;
                                 Map<String, Schema> schemaPropertiesMap = new HashMap<>();
                                 schemaPropertiesMap.put(newName, cs);
                                 Map<String, Object> modelsProperties = processModels(config, schemaPropertiesMap);
