@@ -1856,20 +1856,27 @@ DefaultCodegen implements CodegenConfig {
     protected void addProperties(Map<String, Schema> properties, List<String> required, Schema schema) {
         if (schema instanceof ComposedSchema) {
             ComposedSchema composedSchema = (ComposedSchema) schema;
-
-            for (Schema component : composedSchema.getAllOf()) {
-                addProperties(properties, required, component);
+            if(composedSchema.getAllOf() != null){
+                for (Schema component : composedSchema.getAllOf()) {
+                    addProperties(properties, required, component);
+                }
+                return;
             }
 
-            if (composedSchema.getOneOf() != null) {
-                throw new RuntimeException("Please report the issue: Cannot process oneOf (Composed Scheme) in addProperties: " + schema);
-            }
+            if(composedSchema.getProperties() == null){
+                if (composedSchema.getOneOf() != null) {
+                    for (Schema component : composedSchema.getOneOf()) {
+                        addProperties(properties, required, component);
+                    }
+                }
 
-            if (composedSchema.getAnyOf() != null) {
-                throw new RuntimeException("Please report the issue: Cannot process anyOf (Composed Schema) in addProperties: " + schema);
+                if (composedSchema.getAnyOf() != null) {
+                    for (Schema component : composedSchema.getAnyOf()) {
+                        addProperties(properties, required, component);
+                    }
+                }
+                return;
             }
-
-            return;
         }
 
         if (StringUtils.isNotBlank(schema.get$ref())) {
