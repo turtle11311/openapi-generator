@@ -1750,12 +1750,29 @@ DefaultCodegen implements CodegenConfig {
 
                         // includes child's properties (all, required) in allProperties, allRequired
                         addProperties(allProperties, allRequired, component);
+
+                        // Added by Roger for anyOf enum
+                        if (component.getEnum() != null && !component.getEnum().isEmpty()) {
+                            m.isEnum = true;
+                            // comment out below as allowableValues is not set in post processing model enum
+                            m.allowableValues = new HashMap<String, Object>();
+                            m.allowableValues.put("values", component.getEnum());
+                            if (ModelUtils.isStringSchema(component)) {
+                                m.dataType = getSchemaType(component);
+                                m.isString = Boolean.TRUE;
+                            }
+                        }
                     }
                     break; // at most one child only
                 }
             }
 
-            addVars(m, unaliasPropertySchema(properties), required, unaliasPropertySchema(allProperties), allRequired);
+            // Added by Roger for properties outside the anyOf/oneOf/allOf
+            if(schema.getProperties() != null){
+                addVars(m, unaliasPropertySchema(schema.getProperties()), schema.getRequired(), null, null);
+            } else {
+                addVars(m, unaliasPropertySchema(properties), required, unaliasPropertySchema(allProperties), allRequired);
+            }
 
             // end of code block for composed schema
         } else {
@@ -1839,20 +1856,27 @@ DefaultCodegen implements CodegenConfig {
     protected void addProperties(Map<String, Schema> properties, List<String> required, Schema schema) {
         if (schema instanceof ComposedSchema) {
             ComposedSchema composedSchema = (ComposedSchema) schema;
-
-            for (Schema component : composedSchema.getAllOf()) {
-                addProperties(properties, required, component);
+            if(composedSchema.getAllOf() != null){
+                for (Schema component : composedSchema.getAllOf()) {
+                    addProperties(properties, required, component);
+                }
+                return;
             }
 
-            if (composedSchema.getOneOf() != null) {
-                throw new RuntimeException("Please report the issue: Cannot process oneOf (Composed Scheme) in addProperties: " + schema);
-            }
+            if(composedSchema.getProperties() == null){
+                if (composedSchema.getOneOf() != null) {
+                    for (Schema component : composedSchema.getOneOf()) {
+                        addProperties(properties, required, component);
+                    }
+                }
 
-            if (composedSchema.getAnyOf() != null) {
-                throw new RuntimeException("Please report the issue: Cannot process anyOf (Composed Schema) in addProperties: " + schema);
+                if (composedSchema.getAnyOf() != null) {
+                    for (Schema component : composedSchema.getAnyOf()) {
+                        addProperties(properties, required, component);
+                    }
+                }
+                return;
             }
-
-            return;
         }
 
         if (StringUtils.isNotBlank(schema.get$ref())) {
@@ -3530,6 +3554,32 @@ DefaultCodegen implements CodegenConfig {
                 LOGGER.warn("Please report the issue. There shouldn't be null property for " + key);
             } else {
                 final CodegenProperty cp = fromProperty(key, prop);
+
+                // Added by Roger for building the model of allOf ComposeSchema in properties
+                if(prop instanceof ComposedSchema){
+                    ComposedSchema cs = (ComposedSchema) prop;
+                    // Check if allOf contains $ref and properties
+                    Boolean has$ref = false;
+                    Boolean hasProperties = false;
+                    if(cs.getAllOf() != null){
+                        for (Schema s : cs.getAllOf()) {
+                            if(s.get$ref() != null){
+                                // Find $ref name
+                                has$ref = true;
+                                cp.dataType = toModelName(getSingleSchemaType(s));
+                            }
+                            if(s.getProperties() != null){
+                                hasProperties = true;
+                            }
+                        }
+                    }
+                    if(has$ref && hasProperties){
+                        //TODO
+                        cp.dataType = toModelName(cp.dataType + m.getName());
+                    }
+                }
+                ////////////////////////////////// END //////////////////////////////////
+
                 cp.required = mandatory.contains(key);
                 m.hasRequired = m.hasRequired || cp.required;
                 m.hasOptional = m.hasOptional || !cp.required;
