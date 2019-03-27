@@ -4741,8 +4741,16 @@ DefaultCodegen implements CodegenConfig {
             throw new RuntimeException("Request body cannot be null. Possible cause: missing schema in body parameter (OAS v2): " + body);
         }
 
+        boolean isOneOfComposedSchema = Boolean.FALSE;
         if (StringUtils.isNotBlank(schema.get$ref())) {
             name = ModelUtils.getSimpleRef(schema.get$ref());
+        }
+        else if (ModelUtils.isComposedSchema(schema)){
+            ComposedSchema cs = (ComposedSchema)schema;
+            if(cs.getOneOf() != null){
+                isOneOfComposedSchema = Boolean.TRUE;
+                name = "oneOfComposedSchema";
+            }
         }
         schema = ModelUtils.getReferencedSchema(this.openAPI, schema);
 
@@ -4856,8 +4864,13 @@ DefaultCodegen implements CodegenConfig {
                     codegenParameter.baseName = bodyParameterName;
                 }
                 codegenParameter.paramName = toParamName(codegenParameter.baseName);
-                codegenParameter.baseType = codegenModel.classname;
-                codegenParameter.dataType = getTypeDeclaration(codegenModel.classname);
+                if (isOneOfComposedSchema){
+                    codegenParameter.baseType = "interface{}";
+                    codegenParameter.dataType = "interface{}";
+                } else {
+                    codegenParameter.baseType = codegenModel.classname;
+                    codegenParameter.dataType = getTypeDeclaration(codegenModel.classname);
+                }
                 codegenParameter.description = codegenModel.description;
                 imports.add(codegenParameter.baseType);
             } else {
