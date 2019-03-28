@@ -2529,6 +2529,16 @@ DefaultCodegen implements CodegenConfig {
                 bodyParam.description = escapeText(requestBody.getDescription());
                 postProcessParameter(bodyParam);
 
+                List<Parameter> parameterList = operation.getParameters();
+                if(parameterList != null) {
+                    String opName = parameterList.get(0).getName();
+                    opName = opName + "Body";
+                    if(opName != null) {
+                        bodyParam.baseName = opName;
+                        bodyParam.paramName = toParamName(opName);
+                    }
+                }
+
                 bodyParams.add(bodyParam);
 
                 if (prependFormOrBodyParameters) {
