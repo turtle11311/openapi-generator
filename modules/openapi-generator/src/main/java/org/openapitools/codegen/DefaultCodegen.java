@@ -1631,6 +1631,17 @@ DefaultCodegen implements CodegenConfig {
             m.getVendorExtensions().putAll(schema.getExtensions());
         }
         m.isAlias = typeAliases.containsKey(name);
+
+        // Added by Roger for building unnecessary empty model about get wrong type
+        if(m.isAlias == Boolean.FALSE) {
+            String schemaType = getPrimitiveType(schema);
+            if (schemaType != null && !schemaType.equals("object") && !schemaType.equals("array")
+                    && schema.getEnum() == null && !ModelUtils.isMapSchema(schema)) {
+                m.isAlias = Boolean.TRUE;
+            }
+        }
+        ////////////////////////END////////////////////////
+
         m.discriminator = createDiscriminator(name, schema);
 
         if (schema.getXml() != null) {
