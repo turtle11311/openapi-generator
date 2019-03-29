@@ -1751,6 +1751,19 @@ DefaultCodegen implements CodegenConfig {
                         // includes child's properties (all, required) in allProperties, allRequired
                         addProperties(allProperties, allRequired, component);
 
+                        // Add by Roger for handling not schema required in allOf
+                        if(component.getNot() != null){
+                            Schema notSchema = component.getNot();
+                            if(notSchema.getRequired() != null){
+                                List<String> notRequiredList = notSchema.getRequired();
+                                for(String notRequiredKey : notRequiredList){
+                                    required.remove(notRequiredKey);
+                                    allRequired.remove(notRequiredKey);
+                                }
+                            }
+                        }
+                        ///////////////////////END///////////////////////
+
                         // Added by Roger for anyOf enum
                         if (component.getEnum() != null && !component.getEnum().isEmpty()) {
                             m.isEnum = true;
