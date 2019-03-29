@@ -48,7 +48,7 @@ public class InlineModelResolver {
         }
 
         flattenPaths();
-        flattenComponents(openapi);
+        flattenComponents();
     }
 
     /**
@@ -206,59 +206,17 @@ public class InlineModelResolver {
     /**
      * Flatten inline models in components
      *
-     * @param openAPI target spec
      */
-    private void flattenComponents(OpenAPI openAPI) {
-        Map<String, Schema> models = openAPI.getComponents().getSchemas();
+    private void flattenComponents() {
+        Map<String, Schema> models = openapi.getComponents().getSchemas();
         if (models == null) {
             return;
         }
 
-        List<String> modelNames = new ArrayList<String>(models.keySet());
+        List<String> modelNames = new ArrayList<>(models.keySet());
         for (String modelName : modelNames) {
-            Schema model = models.get(modelName);
-            if (model instanceof Schema) {
-                Schema m = (Schema) model;
-                Map<String, Schema> properties = m.getProperties();
-                flattenProperties(properties, modelName);
-                fixStringModel(m);
-            } else if (ModelUtils.isArraySchema(model)) {
-                ArraySchema m = (ArraySchema) model;
-                Schema inner = m.getItems();
-                if (inner instanceof ObjectSchema) {
-                    ObjectSchema op = (ObjectSchema) inner;
-                    if (op.getProperties() != null && op.getProperties().size() > 0) {
-                        String innerModelName = resolveModelName(op.getTitle(), modelName + "_inner");
-                        Schema innerModel = modelFromProperty(op, innerModelName);
-                        String existing = matchGenerated(innerModel);
-                        if (existing == null) {
-                            openAPI.getComponents().addSchemas(innerModelName, innerModel);
-                            addGenerated(innerModelName, innerModel);
-                            Schema schema = new Schema().$ref(innerModelName);
-                            schema.setRequired(op.getRequired());
-                            m.setItems(schema);
-                        } else {
-                            Schema schema = new Schema().$ref(existing);
-                            schema.setRequired(op.getRequired());
-                            m.setItems(schema);
-                        }
-                    }
-                }
-            } else if (ModelUtils.isComposedSchema(model)) {
-                ComposedSchema m = (ComposedSchema) model;
-                if (m.getAllOf() != null && !m.getAllOf().isEmpty()) {
-                    Schema child = null;
-                    for (Schema component : m.getAllOf()) {
-                        if (component.get$ref() == null) {
-                            child = component;
-                        }
-                    }
-                    if (child != null) {
-                        Map<String, Schema> properties = child.getProperties();
-                        flattenProperties(properties, modelName);
-                    }
-                }
-            }
+            Schema schema = models.get(modelName);
+            flattenSchema(schema, modelName);
         }
     }
 

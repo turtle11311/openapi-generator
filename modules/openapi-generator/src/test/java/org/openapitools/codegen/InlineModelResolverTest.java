@@ -281,9 +281,9 @@ public class InlineModelResolverTest {
         assertTrue(openAPI.getComponents().getSchemas().get("Users") instanceof ArraySchema);
 
         ArraySchema users = (ArraySchema) openAPI.getComponents().getSchemas().get("Users");
-        assertTrue(users.getItems() instanceof ObjectSchema);
+        assertEquals("#/components/schemas/User", users.getItems().get$ref());
 
-        ObjectSchema user = (ObjectSchema) users.getItems();
+        ObjectSchema user = (ObjectSchema) ModelUtils.getReferencedSchema(openAPI, users.getItems());
         assertEquals("User", user.getTitle());
         assertTrue(user.getProperties().get("street") instanceof StringSchema);
         assertTrue(user.getProperties().get("city") instanceof StringSchema);
@@ -626,9 +626,9 @@ public class InlineModelResolverTest {
         assertTrue(openAPI.getComponents().getSchemas().get("ArbitraryObjectModelWithArrayInlineWithoutTitle") instanceof ArraySchema);
 
         ArraySchema schema = (ArraySchema) openAPI.getComponents().getSchemas().get("ArbitraryObjectModelWithArrayInlineWithoutTitle");
-        assertTrue(schema.getItems() instanceof ObjectSchema);
+        assertEquals("#/components/schemas/ArbitraryObjectModelWithArrayInlineWithoutTitle_inner", schema.getItems().get$ref());
 
-        ObjectSchema items = (ObjectSchema) schema.getItems();
+        ObjectSchema items = (ObjectSchema) ModelUtils.getReferencedSchema(openAPI, schema.getItems());
         assertTrue(items.getProperties().get("arbitrary_object_model_with_array_inline_without_title") instanceof ObjectSchema);
 
         ObjectSchema itemsProperty = (ObjectSchema) items.getProperties().get("arbitrary_object_model_with_array_inline_without_title");
@@ -643,10 +643,9 @@ public class InlineModelResolverTest {
         assertTrue(openAPI.getComponents().getSchemas().get("ArbitraryObjectModelWithArrayInlineWithTitle") instanceof ArraySchema);
 
         ArraySchema schema = (ArraySchema) openAPI.getComponents().getSchemas().get("ArbitraryObjectModelWithArrayInlineWithTitle");
-        assertTrue(schema.getItems() instanceof ObjectSchema);
+        assertEquals("#/components/schemas/ArbitraryObjectModelWithArrayInlineWithTitleInner", schema.getItems().get$ref());
 
-        ObjectSchema items = (ObjectSchema) schema.getItems();
-        // TODO: Fix the model as referenced schema which named with the title value
+        ObjectSchema items = (ObjectSchema) ModelUtils.getReferencedSchema(openAPI, schema.getItems());
         assertEquals("ArbitraryObjectModelWithArrayInlineWithTitleInner", items.getTitle());
         assertTrue(items.getProperties().get("arbitrary_object_model_with_array_inline_with_title") instanceof ObjectSchema);
 
