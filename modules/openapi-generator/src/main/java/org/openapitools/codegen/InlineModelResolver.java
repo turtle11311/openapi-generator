@@ -17,7 +17,6 @@
 
 package org.openapitools.codegen;
 
-import io.swagger.v3.core.util.Json;
 import io.swagger.v3.oas.models.*;
 import io.swagger.v3.oas.models.media.*;
 import io.swagger.v3.oas.models.parameters.Parameter;
@@ -32,7 +31,6 @@ import java.util.*;
 
 public class InlineModelResolver {
     private OpenAPI openapi;
-    private Map<String, Schema> addedModels = new HashMap<String, Schema>();
     private Map<String, String> generatedSignature = new HashMap<String, String>();
     static Logger LOGGER = LoggerFactory.getLogger(InlineModelResolver.class);
 
@@ -64,7 +62,7 @@ public class InlineModelResolver {
             PathItem path = paths.get(pathname);
             for (Operation operation : path.readOperations()) {
                 RequestBody requestBody = ModelUtils.getReferencedRequestBody(openapi, operation.getRequestBody());
-                flattenRequestBody(openapi, operation, requestBody);
+                flattenRequestBody(operation, requestBody);
                 flattenParameters(operation);
                 flattenResponses(operation);
             }
@@ -74,12 +72,11 @@ public class InlineModelResolver {
     /**
      * Flatten inline models in RequestBody
      *
-     * @param openAPI target spec
      * @param operation target operation
      * @param requestBody target requestBody
 
      */
-    private void flattenRequestBody(OpenAPI openAPI, Operation operation, RequestBody requestBody) {
+    private void flattenRequestBody(Operation operation, RequestBody requestBody) {
         if (requestBody == null) {
             return;
         }
@@ -219,18 +216,6 @@ public class InlineModelResolver {
         }
     }
 
-    private String matchGenerated(Schema model) {
-        String json = Json.pretty(model);
-        if (generatedSignature.containsKey(json)) {
-            return generatedSignature.get(json);
-        }
-        return null;
-    }
-
-    private void addGenerated(String name, Schema model) {
-        generatedSignature.put(Json.pretty(model), name);
-    }
-
     private String uniqueName(String key) {
         if (key == null) {
             key = "NULL_UNIQUE_NAME";
@@ -254,143 +239,5 @@ public class InlineModelResolver {
             count += 1;
         }
         return key;
-    }
-
-    private void flattenProperties(Map<String, Schema> properties, String path) {
-        if (properties == null) {
-            return;
-        }
-        Map<String, Schema> propsToUpdate = new HashMap<String, Schema>();
-        Map<String, Schema> modelsToAdd = new HashMap<String, Schema>();
-        for (String key : properties.keySet()) {
-            Schema property = properties.get(key);
-            if (property instanceof ObjectSchema && ((ObjectSchema) property).getProperties() != null
-                    && ((ObjectSchema) property).getProperties().size() > 0) {
-                ObjectSchema op = (ObjectSchema) property;
-                String modelName = resolveModelName(op.getTitle(), path + "_" + key);
-                Schema model = modelFromProperty(op, modelName);
-                String existing = matchGenerated(model);
-                if (existing != null) {
-                    Schema schema = new Schema().$ref(existing);
-                    schema.setRequired(op.getRequired());
-                    propsToUpdate.put(key, schema);
-                } else {
-                    Schema schema = new Schema().$ref(modelName);
-                    schema.setRequired(op.getRequired());
-                    propsToUpdate.put(key, schema);
-                    modelsToAdd.put(modelName, model);
-                    addGenerated(modelName, model);
-                    openapi.getComponents().addSchemas(modelName, model);
-                }
-            } else if (property instanceof ArraySchema) {
-                ArraySchema ap = (ArraySchema) property;
-                Schema inner = ap.getItems();
-                if (inner instanceof ObjectSchema) {
-                    ObjectSchema op = (ObjectSchema) inner;
-                    if (op.getProperties() != null && op.getProperties().size() > 0) {
-                        flattenProperties(op.getProperties(), path);
-                        String modelName = resolveModelName(op.getTitle(), path + "_" + key);
-                        Schema innerModel = modelFromProperty(op, modelName);
-                        String existing = matchGenerated(innerModel);
-                        if (existing != null) {
-                            Schema schema = new Schema().$ref(existing);
-                            schema.setRequired(op.getRequired());
-                            ap.setItems(schema);
-                        } else {
-                            Schema schema = new Schema().$ref(modelName);
-                            schema.setRequired(op.getRequired());
-                            ap.setItems(schema);
-                            addGenerated(modelName, innerModel);
-                            openapi.getComponents().addSchemas(modelName, innerModel);
-                        }
-                    }
-                }
-            }
-            if (ModelUtils.isMapSchema(property)) {
-                Schema inner = ModelUtils.getAdditionalProperties(property);
-                if (inner instanceof ObjectSchema) {
-                    ObjectSchema op = (ObjectSchema) inner;
-                    if (op.getProperties() != null && op.getProperties().size() > 0) {
-                        flattenProperties(op.getProperties(), path);
-                        String modelName = resolveModelName(op.getTitle(), path + "_" + key);
-                        Schema innerModel = modelFromProperty(op, modelName);
-                        String existing = matchGenerated(innerModel);
-                        if (existing != null) {
-                            Schema schema = new Schema().$ref(existing);
-                            schema.setRequired(op.getRequired());
-                            property.setAdditionalProperties(schema);
-                        } else {
-                            Schema schema = new Schema().$ref(modelName);
-                            schema.setRequired(op.getRequired());
-                            property.setAdditionalProperties(schema);
-                            addGenerated(modelName, innerModel);
-                            openapi.getComponents().addSchemas(modelName, innerModel);
-                        }
-                    }
-                }
-            }
-        }
-        if (propsToUpdate.size() > 0) {
-            for (String key : propsToUpdate.keySet()) {
-                properties.put(key, propsToUpdate.get(key));
-            }
-        }
-        for (String key : modelsToAdd.keySet()) {
-            openapi.getComponents().addSchemas(key, modelsToAdd.get(key));
-            this.addedModels.put(key, modelsToAdd.get(key));
-        }
-    }
-
-    private Schema modelFromProperty(ObjectSchema object, String path) {
-        String description = object.getDescription();
-        String example = null;
-        Object obj = object.getExample();
-        if (obj != null) {
-            example = obj.toString();
-        }
-        XML xml = object.getXml();
-        Map<String, Schema> properties = object.getProperties();
-        Schema model = new Schema();
-        model.setDescription(description);
-        model.setExample(example);
-        model.setName(object.getName());
-        model.setXml(xml);
-        model.setRequired(object.getRequired());
-        model.setNullable(object.getNullable());
-        if (properties != null) {
-            flattenProperties(properties, path);
-            model.setProperties(properties);
-        }
-        return model;
-    }
-
-    /**
-     * Make a Schema
-     *
-     * @param ref      new property name
-     * @param property Schema
-     * @return {@link Schema} A constructed OpenAPI property
-     */
-    private Schema makeSchema(String ref, Schema property) {
-        Schema newProperty = new Schema().$ref(ref);
-        this.copyVendorExtensions(property, newProperty);
-        return newProperty;
-    }
-
-    /**
-     * Copy vendor extensions from Model to another Model
-     *
-     * @param source source property
-     * @param target target property
-     */
-
-    private void copyVendorExtensions(Schema source, Schema target) {
-        Map<String, Object> vendorExtensions = source.getExtensions();
-        if (vendorExtensions == null) {
-             return;
-        }
-        for (String extName : vendorExtensions.keySet()) {
-            target.addExtension(extName, vendorExtensions.get(extName));
-        }
     }
 }
