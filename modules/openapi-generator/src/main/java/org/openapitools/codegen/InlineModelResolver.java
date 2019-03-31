@@ -84,9 +84,15 @@ public class InlineModelResolver {
             return;
         }
 
-        Schema requestBodySchema = ModelUtils.getSchemaFromRequestBody(requestBody);
-        String requestBodySchemaName = resolveModelName(requestBodySchema.getTitle(), operation.getOperationId());
-        flattenSchema(requestBodySchema, requestBodySchemaName);
+        Content content = requestBody.getContent();
+        content.forEach((contentType, mediaType) -> {
+            Schema requestBodySchema = mediaType.getSchema();
+            String requestBodySchemaName = resolveModelName(requestBodySchema.getTitle(), operation.getOperationId() + "_requestBody");
+            flattenSchema(requestBodySchema, requestBodySchemaName);
+
+            openapi.getComponents().addSchemas(requestBodySchemaName, requestBodySchema);
+            mediaType.schema(new Schema().$ref(requestBodySchemaName));
+        });
 
     }
 
