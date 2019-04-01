@@ -717,7 +717,7 @@ public class JavaJAXRSCXFExtServerCodegenTest {
                 + "cache = JsonCache\\.Factory\\.instance.get\\(\"test-data\"\\)\\.load\\(cacheFile\\)"
                 + "\\.child\\(\"/org\\.openapitools\\.api/PetApi\"\\);";
         String reAddPetTest = "public void addPetTest\\(\\) throws Exception \\{\\s+"
-                + "Pet pet = cache\\.getObject\\(\"/addPet/pet\", Pet\\.class\\);";
+                + "Pet body = cache\\.getObject\\(\"/addPet/body\", Pet\\.class\\);";
         checkFile(generator, outputPath + "/src/test/java/org/openapitools/api/PetApiTest.java", true, reInitCache,
                 reAddPetTest);
 
