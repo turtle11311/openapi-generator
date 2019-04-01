@@ -11,6 +11,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -27,6 +28,7 @@ import (
 var (
 	jsonCheck = regexp.MustCompile(`(?i:(?:application|text)/(?:vnd\.[^;]+\+)?json)`)
 	xmlCheck  = regexp.MustCompile(`(?i:(?:application|text)/xml)`)
+	multipartRelatedCheck = regexp.MustCompile("(?i:multipart/related)")
 )
 
 // APIClient manages communication with the {{appName}} API v{{version}}
@@ -48,6 +50,12 @@ type APIClient struct {
 
 type service struct {
 	client *APIClient
+}
+
+type MultipartInfo struct {
+	Body interface{}
+	Boundary string
+	ContentTypeMap map[string]string
 }
 
 // NewAPIClient creates a new API client. Requires a userAgent string describing your application.
@@ -169,7 +177,8 @@ func (c *APIClient) prepareRequest(
 	formParams url.Values,
 	formFileName string,
 	fileName string,
-	fileBytes []byte) (localVarRequest *http.Request, err error) {
+	fileBytes []byte,
+	contentTypeMap map[string]string) (localVarRequest *http.Request, err error) {
 
 	var body *bytes.Buffer
 
@@ -181,9 +190,42 @@ func (c *APIClient) prepareRequest(
 			headerParams["Content-Type"] = contentType
 		}
 
-		body, err = setBody(postBody, contentType)
-		if err != nil {
-			return nil, err
+		if strings.HasPrefix(headerParams["Content-Type"], "multipart/related") {
+			body = &bytes.Buffer{}
+			mpWriter := multipart.NewWriter(body)
+			headerParams["Content-Type"] = "multipart/related; boundary=" + mpWriter.Boundary()
+			headerParams["boundary"] = mpWriter.Boundary()
+
+			operationStructTypeOf := reflect.TypeOf(postBody).Elem()
+			operationStructValueOf := reflect.ValueOf(postBody).Elem()
+
+			for i := 0; i < operationStructValueOf.NumField(); i++ {
+				field := operationStructTypeOf.Field(i)
+				value := operationStructValueOf.Field(i)
+				// fmt.Printf("%s: %v (map:%s) = %v\n", field.Name, field.Type, ctMap[field.Name], value)
+
+				part := make(textproto.MIMEHeader)
+				partType := contentTypeMap[field.Name]
+				part.Set("Content-Type", partType)
+				writer, err := mpWriter.CreatePart(part)
+				if err != nil {
+					panic(err)
+				}
+
+				if partType == "application/json" {
+					json.NewEncoder(writer).Encode(value.Interface())
+				} else {
+					writer.Write(value.Bytes())
+				}
+			}
+
+			mpWriter.Close()
+			// fmt.Println(body.String())
+		} else {
+			body, err = setBody(postBody, contentType)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 

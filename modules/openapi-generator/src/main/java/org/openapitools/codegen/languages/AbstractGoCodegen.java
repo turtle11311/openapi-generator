@@ -18,6 +18,7 @@
 package org.openapitools.codegen.languages;
 
 import io.swagger.v3.oas.models.media.ArraySchema;
+import io.swagger.v3.oas.models.media.ComposedSchema;
 import io.swagger.v3.oas.models.media.Schema;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -102,10 +103,12 @@ public abstract class AbstractGoCodegen extends DefaultCodegen implements Codege
         typeMapping.put("DateTime", "time.Time");
         typeMapping.put("password", "string");
         typeMapping.put("File", "*os.File");
-        typeMapping.put("file", "*os.File");
-        typeMapping.put("binary", "*os.File");
+        typeMapping.put("file", "[]byte");
+        typeMapping.put("binary", "[]byte");
         typeMapping.put("ByteArray", "string");
         typeMapping.put("object", "map[string]interface{}");
+        // Added by Roger
+        typeMapping.put("interface{}", "interface{}");
 
         importMapping = new HashMap<String, String>();
 
@@ -116,6 +119,30 @@ public abstract class AbstractGoCodegen extends DefaultCodegen implements Codege
                 .defaultValue("1.0.0"));
         cliOptions.add(new CliOption(CodegenConstants.HIDE_GENERATION_TIMESTAMP, CodegenConstants.HIDE_GENERATION_TIMESTAMP_DESC)
                 .defaultValue(Boolean.TRUE.toString()));
+    }
+
+    /**
+     * Return the name of the anyOf schema
+     *
+     * @param names          List of names
+     * @param composedSchema composed schema
+     * @return name of the anyOf schema
+     */
+    @Override
+    public String toAnyOfName(List<String> names, ComposedSchema composedSchema) {
+        return "interface{}"; // Fixed by Roger
+    }
+
+    /**
+     * Return the name of the oneOf schema
+     *
+     * @param names          List of names
+     * @param composedSchema composed schema
+     * @return name of the oneOf schema
+     */
+    @Override
+    public String toOneOfName(List<String> names, ComposedSchema composedSchema) {
+        return "interface{}"; // Fixed by Roger
     }
 
     @Override
