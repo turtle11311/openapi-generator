@@ -42,7 +42,7 @@ public class InlineModelResolver {
         }
 
         if (openapi.getComponents().getSchemas() == null) {
-            openapi.getComponents().setSchemas(new HashMap<String, Schema>());
+            openapi.getComponents().setSchemas(new HashMap<>());
         }
 
         flattenPaths();
@@ -84,11 +84,13 @@ public class InlineModelResolver {
         Content content = requestBody.getContent();
         content.forEach((contentType, mediaType) -> {
             Schema requestBodySchema = mediaType.getSchema();
-            String requestBodySchemaName = resolveModelName(requestBodySchema.getTitle(), operation.getOperationId() + "_requestBody");
-            flattenSchema(requestBodySchema, requestBodySchemaName);
+            if (isNeedInlineSchema(requestBodySchema)) {
+                String requestBodySchemaName = resolveModelName(requestBodySchema.getTitle(), operation.getOperationId() + "_requestBody");
+                flattenSchema(requestBodySchema, requestBodySchemaName);
 
-            openapi.getComponents().addSchemas(requestBodySchemaName, requestBodySchema);
-            mediaType.schema(new Schema().$ref(requestBodySchemaName));
+                openapi.getComponents().addSchemas(requestBodySchemaName, requestBodySchema);
+                mediaType.schema(new Schema().$ref(requestBodySchemaName));
+            }
         });
 
     }
@@ -132,12 +134,14 @@ public class InlineModelResolver {
 
             response.getContent().forEach((contentType, MediaType) -> {
                 Schema responseModel = MediaType.getSchema();
-                String responseModelName = resolveModelName(responseModel.getTitle(),
-                        operation.getOperationId() + "_response_" + statusCode);
-                flattenSchema(responseModel, responseModelName);
+                if (isNeedInlineSchema(responseModel)) {
+                    String responseModelName = resolveModelName(responseModel.getTitle(),
+                            operation.getOperationId() + "_response_" + statusCode);
+                    flattenSchema(responseModel, responseModelName);
 
-                openapi.getComponents().addSchemas(responseModelName, responseModel);
-                MediaType.schema(new Schema().$ref(responseModelName));
+                    openapi.getComponents().addSchemas(responseModelName, responseModel);
+                    MediaType.schema(new Schema().$ref(responseModelName));
+                }
             });
 
         }
@@ -239,5 +243,20 @@ public class InlineModelResolver {
             count += 1;
         }
         return key;
+    }
+
+    /**
+     * Check this schema is need to be flatten
+     *
+     * @param schema Schema implementation
+     */
+    private boolean isNeedInlineSchema(Schema schema) {
+        if (schema == null) {
+            return false;
+        }
+
+        return ModelUtils.isComposedSchema(schema) ||
+                (schema.getProperties() != null && schema.getProperties().size() > 1);
+
     }
 }
