@@ -221,8 +221,7 @@ public class InlineModelResolverTest {
 
         ApiResponse response = responses.get("200");
         assertNotNull(response);
-        Schema schema = ModelUtils.getReferencedSchema(openapi,
-                response.getContent().get("application/json").getSchema());
+        Schema schema = response.getContent().get("application/json").getSchema();
         assertNotNull(schema);
         assertEquals(1, schema.getExtensions().size());
         assertEquals("ext-prop", schema.getExtensions().get("x-ext"));
@@ -264,8 +263,7 @@ public class InlineModelResolverTest {
 
         ApiResponse response = responses.get("200");
         assertNotNull(response);
-        Schema schema = ModelUtils.getReferencedSchema(openapi,
-                response.getContent().get("application/json").getSchema());
+        Schema schema = response.getContent().get("application/json").getSchema();
         assertNotNull(schema);
         assertEquals(1, schema.getExtensions().size());
         assertEquals("ext-prop", schema.getExtensions().get("x-ext"));
@@ -406,11 +404,10 @@ public class InlineModelResolverTest {
                 .getContent()
                 .get("application/json");
 
-        Schema mediaTypeSchema = ModelUtils.getReferencedSchema(openAPI, mediaType.getSchema());
-        assertTrue(mediaTypeSchema instanceof ArraySchema);
+        assertTrue(mediaType.getSchema() instanceof ArraySchema);
 
-        ArraySchema responseSchema = (ArraySchema) mediaTypeSchema;
-        assertEquals("#/components/schemas/resolveInlineArrayResponse_response_200_inner", responseSchema.getItems().get$ref());
+        ArraySchema responseSchema = (ArraySchema) mediaType.getSchema();
+        assertEquals("#/components/schemas/inline_response_200", responseSchema.getItems().get$ref());
 
         Schema items = ModelUtils.getReferencedSchema(openAPI, responseSchema.getItems());
         assertTrue(items.getProperties().get("array_response_property") instanceof StringSchema);
@@ -430,7 +427,7 @@ public class InlineModelResolverTest {
                 .getContent()
                 .get("application/json");
 
-        ArraySchema responseSchema = (ArraySchema) ModelUtils.getReferencedSchema(openAPI, mediaType.getSchema());
+        ArraySchema responseSchema = (ArraySchema) mediaType.getSchema();
         assertEquals("#/components/schemas/resolveInlineArrayResponseWithTitleItems", responseSchema.getItems().get$ref());
     }
 
@@ -448,11 +445,10 @@ public class InlineModelResolverTest {
                 .getContent()
                 .get("application/json");
 
-        Schema mediaTypeSchema = ModelUtils.getReferencedSchema(openAPI, mediaType.getSchema());
-        assertTrue(mediaTypeSchema instanceof ObjectSchema);
-        assertTrue(mediaTypeSchema.getAdditionalProperties() instanceof ObjectSchema);
+        assertTrue(mediaType.getSchema() instanceof ObjectSchema);
+        assertTrue(mediaType.getSchema().getAdditionalProperties() instanceof ObjectSchema);
 
-        ObjectSchema additionalProperties = (ObjectSchema) mediaTypeSchema.getAdditionalProperties();
+        ObjectSchema additionalProperties = (ObjectSchema) mediaType.getSchema().getAdditionalProperties();
         assertTrue(additionalProperties.getProperties().get("resolve_inline_object_response_with_additional_properties") instanceof StringSchema);
     }
 
@@ -549,9 +545,8 @@ public class InlineModelResolverTest {
                 .getContent()
                 .get("application/json");
 
-        Schema mediaTypeSchema = ModelUtils.getReferencedSchema(openAPI, mediaType.getSchema());
-        assertTrue(mediaTypeSchema instanceof ObjectSchema);
-        assertNull(mediaTypeSchema.getProperties());
+        assertTrue(mediaType.getSchema() instanceof ObjectSchema);
+        assertNull(mediaType.getSchema().getProperties());
     }
 
     @Test
@@ -568,10 +563,9 @@ public class InlineModelResolverTest {
                 .getContent()
                 .get("application/json");
 
-        Schema mediaTypeSchema = ModelUtils.getReferencedSchema(openAPI, mediaType.getSchema());
-        assertTrue(mediaTypeSchema instanceof ArraySchema);
-        ArraySchema arrayschema = (ArraySchema) mediaTypeSchema;
-        assertNull(arrayschema.getItems().getProperties());
+        assertTrue(mediaType.getSchema() instanceof ArraySchema);
+        ArraySchema schema = (ArraySchema) mediaType.getSchema();
+        assertNull(schema.getItems().getProperties());
     }
 
     @Test
@@ -588,12 +582,11 @@ public class InlineModelResolverTest {
                 .getContent()
                 .get("application/json");
 
-        Schema mediaTypeSchema = ModelUtils.getReferencedSchema(openAPI, mediaType.getSchema());
-        assertTrue(mediaTypeSchema instanceof ArraySchema);
-        ArraySchema arrayschema = (ArraySchema) mediaTypeSchema;
-        assertNotNull(arrayschema.getItems().get$ref());
+        assertTrue(mediaType.getSchema() instanceof ArraySchema);
+        ArraySchema schema = (ArraySchema) mediaType.getSchema();
+        assertNotNull(schema.getItems().get$ref());
 
-        Schema referencedSchema = ModelUtils.getReferencedSchema(openAPI, arrayschema.getItems());
+        Schema referencedSchema = ModelUtils.getReferencedSchema(openAPI, schema.getItems());
         assertTrue(referencedSchema.getProperties().get("arbitrary_object_response_array_inline") instanceof ObjectSchema);
 
         ObjectSchema arbitaryObject = (ObjectSchema) referencedSchema.getProperties().get("arbitrary_object_response_array_inline");
@@ -614,11 +607,10 @@ public class InlineModelResolverTest {
                 .getContent()
                 .get("application/json");
 
-        Schema mediaTypeSchema = ModelUtils.getReferencedSchema(openAPI, mediaType.getSchema());
-        assertTrue(mediaTypeSchema instanceof ObjectSchema);
-        assertTrue(mediaTypeSchema.getAdditionalProperties() instanceof ObjectSchema);
+        assertTrue(mediaType.getSchema() instanceof ObjectSchema);
+        assertTrue(mediaType.getSchema().getAdditionalProperties() instanceof ObjectSchema);
 
-        ObjectSchema additionalProperty = (ObjectSchema) mediaTypeSchema.getAdditionalProperties();
+        ObjectSchema additionalProperty = (ObjectSchema) mediaType.getSchema().getAdditionalProperties();
         assertNull(additionalProperty.getProperties());
     }
 
@@ -683,14 +675,13 @@ public class InlineModelResolverTest {
                 .getContent()
                 .get("application/json");
 
-        Schema mediaTypeSchema = ModelUtils.getReferencedSchema(openAPI, mediaType.getSchema());
-        assertTrue(mediaTypeSchema instanceof ArraySchema);
+        assertTrue(mediaType.getSchema() instanceof ArraySchema);
 
-        ArraySchema arraySchema = (ArraySchema) mediaTypeSchema;
-        assertEquals("#/components/schemas/EmptyExampleOnStringTypeModels", arraySchema.getItems().get$ref());
+        ArraySchema schema = (ArraySchema) mediaType.getSchema();
+        assertEquals("#/components/schemas/EmptyExampleOnStringTypeModels", schema.getItems().get$ref());
 
-        assertTrue(ModelUtils.getReferencedSchema(openAPI, arraySchema.getItems()) instanceof StringSchema);
-        assertNull(ModelUtils.getReferencedSchema(openAPI, arraySchema.getItems()).getExample());
+        assertTrue(ModelUtils.getReferencedSchema(openAPI, schema.getItems()) instanceof StringSchema);
+        assertNull(ModelUtils.getReferencedSchema(openAPI, schema.getItems()).getExample());
     }
 
     @Test

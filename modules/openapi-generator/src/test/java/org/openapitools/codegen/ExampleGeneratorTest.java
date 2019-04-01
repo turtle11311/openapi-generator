@@ -1,9 +1,7 @@
 package org.openapitools.codegen;
 
 import io.swagger.v3.oas.models.OpenAPI;
-import io.swagger.v3.oas.models.media.Schema;
 import org.openapitools.codegen.examples.ExampleGenerator;
-import org.openapitools.codegen.utils.ModelUtils;
 import org.testng.annotations.Test;
 
 import java.util.*;
@@ -52,7 +50,7 @@ public class ExampleGeneratorTest {
         mediaTypeKeys.add("application/json");
         List<Map<String, String>> examples = exampleGenerator.generateFromResponseSchema(
                 "200",
-                ModelUtils.getReferencedSchema(openAPI, openAPI
+                openAPI
                         .getPaths()
                         .get("/generate_from_response_schema_with_no_example")
                         .getGet()
@@ -60,7 +58,7 @@ public class ExampleGeneratorTest {
                         .get("200")
                         .getContent()
                         .get("application/json")
-                        .getSchema()),
+                        .getSchema(),
                 mediaTypeKeys
         );
 
@@ -78,15 +76,15 @@ public class ExampleGeneratorTest {
         mediaTypeKeys.add("application/json");
         List<Map<String, String>> examples = exampleGenerator.generateFromResponseSchema(
                 "200",
-                ModelUtils.getReferencedSchema(openAPI, openAPI
-                        .getPaths()
-                        .get("/generate_from_response_schema_with_array_of_model")
-                        .getGet()
-                        .getResponses()
-                        .get("200")
-                        .getContent()
-                        .get("application/json")
-                        .getSchema()),
+                openAPI
+                    .getPaths()
+                    .get("/generate_from_response_schema_with_array_of_model")
+                    .getGet()
+                    .getResponses()
+                    .get("200")
+                    .getContent()
+                    .get("application/json")
+                    .getSchema(),
                 mediaTypeKeys
         );
 
@@ -107,7 +105,7 @@ public class ExampleGeneratorTest {
         mediaTypeKeys.add("application/json");
         List<Map<String, String>> examples = exampleGenerator.generateFromResponseSchema(
                 "200",
-                ModelUtils.getReferencedSchema(openAPI, openAPI
+                openAPI
                         .getPaths()
                         .get("/generate_from_response_schema_with_array_of_primitive_types")
                         .getGet()
@@ -115,7 +113,7 @@ public class ExampleGeneratorTest {
                         .get("200")
                         .getContent()
                         .get("application/json")
-                        .getSchema()),
+                        .getSchema(),
                 mediaTypeKeys
         );
 
@@ -136,7 +134,7 @@ public class ExampleGeneratorTest {
         mediaTypeKeys.add("application/json");
         List<Map<String, String>> examples = exampleGenerator.generateFromResponseSchema(
                 "200",
-                ModelUtils.getReferencedSchema(openAPI, openAPI
+                openAPI
                         .getPaths()
                         .get("/generate_from_response_schema_with_model")
                         .getGet()
@@ -144,7 +142,7 @@ public class ExampleGeneratorTest {
                         .get("200")
                         .getContent()
                         .get("application/json")
-                        .getSchema()),
+                        .getSchema(),
                 mediaTypeKeys
         );
 
