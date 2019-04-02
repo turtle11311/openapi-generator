@@ -53,6 +53,7 @@ import java.util.*;
 import java.util.Map.Entry;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -2522,15 +2523,15 @@ DefaultCodegen implements CodegenConfig {
         }
 
         List<Parameter> parameters = operation.getParameters();
-        List<CodegenParameter> allParams = new ArrayList<CodegenParameter>();
-        List<CodegenParameter> bodyParams = new ArrayList<CodegenParameter>();
-        List<CodegenParameter> pathParams = new ArrayList<CodegenParameter>();
-        List<CodegenParameter> queryParams = new ArrayList<CodegenParameter>();
-        List<CodegenParameter> headerParams = new ArrayList<CodegenParameter>();
-        List<CodegenParameter> cookieParams = new ArrayList<CodegenParameter>();
-        List<CodegenParameter> formParams = new ArrayList<CodegenParameter>();
-        List<CodegenParameter> requiredParams = new ArrayList<CodegenParameter>();
-        List<CodegenParameter> optionalParams = new ArrayList<CodegenParameter>();
+        List<CodegenParameter> allParams = new ArrayList<>();
+        List<CodegenParameter> bodyParams = new ArrayList<>();
+        List<CodegenParameter> pathParams = new ArrayList<>();
+        List<CodegenParameter> queryParams = new ArrayList<>();
+        List<CodegenParameter> headerParams = new ArrayList<>();
+        List<CodegenParameter> cookieParams = new ArrayList<>();
+        List<CodegenParameter> formParams = new ArrayList<>();
+        List<CodegenParameter> requiredParams = new ArrayList<>();
+        List<CodegenParameter> optionalParams = new ArrayList<>();
 
         CodegenParameter bodyParam = null;
         RequestBody requestBody = operation.getRequestBody();
@@ -2539,14 +2540,12 @@ DefaultCodegen implements CodegenConfig {
             op.requestBodyRequired = requestBody.getRequired();
         }
 
-        Boolean hasMultipartRelated = false;
         if (requestBody != null && requestBody.getContent() != null) {
-            int contentSize = requestBody.getContent().keySet().size();
-            for(int i = 1; i <= contentSize; i++) {
-                String content = new ArrayList<>(requestBody.getContent().keySet()).get(i-1);
-                if ("multipart/related".equalsIgnoreCase(content))
-                    hasMultipartRelated = true;
-            }
+            Content content = requestBody.getContent();
+            op.hasMultipartRelated = content.keySet()
+                    .stream()
+                    .filter("multipart/related"::equalsIgnoreCase)
+                    .collect(Collectors.toList()).size() > 0;
         }
 
         if (requestBody != null) {
@@ -2563,7 +2562,7 @@ DefaultCodegen implements CodegenConfig {
                         allParams.add(cp.copy());
                     }
                 }
-            } else if (hasMultipartRelated) {
+            } else if (op.hasMultipartRelated) {
                 // process form parameters
                 bodyParams = fromRequestBodyToBodyParameters(requestBody, imports);
                 for (CodegenParameter cp : bodyParams) {
@@ -4455,24 +4454,18 @@ DefaultCodegen implements CodegenConfig {
     }
 
     public List<CodegenParameter> fromRequestBodyToBodyParameters(RequestBody body, Set<String> imports) {
-        List<CodegenParameter> parameters = new ArrayList<CodegenParameter>();
+        List<CodegenParameter> parameters = new ArrayList<>();
         LOGGER.debug("debugging fromRequestBodyToBodyParameters= " + body);
 
-        Collection<MediaType> mediaTypeCollection = body.getContent().values();
-        int mediaTypeCollectionSize = mediaTypeCollection.size();
-        Iterator<MediaType> mediaTypeIterator = mediaTypeCollection.iterator();
-        MediaType mediaType = null;
-        for(int i=0; i<mediaTypeCollectionSize; i++) {
-            mediaType = mediaTypeIterator.next();
-
-            Schema schema = mediaType.getSchema();
-            //Schema schema = ModelUtils.getSchemaFromRequestBody(body);
-            //schema = ModelUtils.getReferencedSchema(this.openAPI, schema);
+        Content contents = body.getContent();
+        Objects.requireNonNull(contents).forEach((contentType, mediaType) -> {
+            if (contentType.equals("multipart/related")) return;
+            Schema schema = ModelUtils.getReferencedSchema(openAPI, mediaType.getSchema());
 
             if (schema.getProperties() != null && !schema.getProperties().isEmpty()) {
                 Map<String, Schema> properties = schema.getProperties();
                 for (Map.Entry<String, Schema> entry : properties.entrySet()) {
-                    CodegenParameter codegenParameter = CodegenModelFactory.newInstance(CodegenModelType.PARAMETER);
+                    CodegenParameter codegenParameter;
                     // key => property name
                     // value => property schema
                     String collectionFormat = null;
@@ -4533,19 +4526,20 @@ DefaultCodegen implements CodegenConfig {
 
                     Map<String, Encoding> encodingMap = mediaType.getEncoding();
                     Encoding encoding = null;
-                    String contentType = null;
+                    String ct = null;
                     if(encodingMap != null){
                         encoding = encodingMap.get(entry.getKey());
                         if(encoding != null) {
-                            contentType = encoding.getContentType();
-                            codegenParameter.contentType = contentType;
+                            ct = encoding.getContentType();
+                            codegenParameter.contentType = ct;
                         }
                     }
 
                     parameters.add(codegenParameter);
                 }
             }
-        }
+        });
+
         return parameters;
     }
 

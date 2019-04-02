@@ -32,7 +32,7 @@ type {{classname}}Service service
 {{/required}}
 {{/allParams}}
 {{#hasOptionalParams}}
- * @param optional nil or *{{{nickname}}}Opts - Optional Parameters:
+ * @param optional nil or *{{{nickname}}}ParamOpts - Optional Parameters:
 {{#allParams}}
 {{^required}}
  * @param "{{vendorExtensions.x-exportParamName}}" ({{#isPrimitiveType}}{{^isBinary}}optional.{{vendorExtensions.x-optionalDataType}}{{/isBinary}}{{#isBinary}}optional.Interface of {{dataType}}{{/isBinary}}{{/isPrimitiveType}}{{^isPrimitiveType}}optional.Interface of {{dataType}}{{/isPrimitiveType}}) - {{#description}} {{{.}}}{{/description}}
@@ -45,7 +45,7 @@ type {{classname}}Service service
 */
 {{#hasOptionalParams}}
 
-type {{{nickname}}}Opts struct {
+type {{{nickname}}}ParamOpts struct {
 {{#allParams}}
 {{^required}}
 {{#isPrimitiveType}}
@@ -64,17 +64,7 @@ type {{{nickname}}}Opts struct {
 }
 {{/hasOptionalParams}}
 
-{{#requestBodyRequired}}
-{{#hasBodyParam}}
-type Multipart{{{nickname}}} struct {
-    {{#bodyParams}}
-    {{captialBaseName}} {{dataType}}
-    {{/bodyParams}}
-}
-{{/hasBodyParam}}
-{{/requestBodyRequired}}
-
-func (a *{{{classname}}}Service) {{{nickname}}}(ctx context.Context{{#hasParams}}, {{/hasParams}}{{#allParams}}{{#required}}{{paramName}} {{{dataType}}}{{#hasMore}}, {{/hasMore}}{{/required}}{{/allParams}}{{#hasOptionalParams}}localVarOptionals *{{{nickname}}}Opts{{/hasOptionalParams}}, httpContentType string) ({{#returnType}}{{{returnType}}}, {{/returnType}}*http.Response, error) {
+func (a *{{{classname}}}Service) {{{nickname}}}(ctx context.Context{{#MultipleRequestMediaType}}, contentType string{{/MultipleRequestMediaType}}{{#hasMultipartRelated}}, multipartBody MultiPart{{/hasMultipartRelated}}{{#hasParams}}, {{/hasParams}}{{#allParams}}{{#required}}{{paramName}} {{{dataType}}}{{#hasMore}}, {{/hasMore}}{{/required}}{{/allParams}}{{#hasOptionalParams}}localVarOptionals *{{{nickname}}}ParamOpts{{/hasOptionalParams}}) ({{#returnType}}{{{returnType}}}, {{/returnType}}*http.Response, error) {
 	var (
 		localVarHttpMethod   = strings.ToUpper("{{httpMethod}}")
 		localVarPostBody     interface{}
@@ -85,30 +75,6 @@ func (a *{{{classname}}}Service) {{{nickname}}}(ctx context.Context{{#hasParams}
 		localVarReturnValue  {{{returnType}}}
 		{{/returnType}}
 	)
-	
-	// contentTypeMap
-	var contentTypeMap map[string]string 
-    {{#hasBodyParam}}
-    contentTypeMap = map[string]string{
-    {{#bodyParams}}
-        "{{captialBaseName}}": "{{contentType}}",
-    {{/bodyParams}}
-    }
-    {{/hasBodyParam}}	
-	{{#requestBodyRequired}}
-	// put values into multipartRelated structure
-	var multipart{{{nickname}}} Multipart{{{nickname}}}
-	_ = multipart{{{nickname}}}
-	{{#hasBodyParam}}
-	if httpContentType == "multipart/related" {
-		{{#bodyParams}}
-		{{#required}}
-    	multipart{{{nickname}}}.{{captialBaseName}} = {{baseName}}
-    	{{/required}}
-		{{/bodyParams}}
-	}
-	{{/hasBodyParam}}
-	{{/requestBodyRequired}}
 
 	// create path and map variables
 	localVarPath := a.client.cfg.BasePath + "{{{path}}}"{{#pathParams}}
@@ -176,16 +142,21 @@ func (a *{{{classname}}}Service) {{{nickname}}}(ctx context.Context{{#hasParams}
 	{{/required}}
 	{{/queryParams}}
 	{{/hasQueryParams}}
-	// to determine the Content-Type header
 {{=<% %>=}}
-	localVarHttpContentTypes := []string{<%#consumes%>"<%&mediaType%>"<%^-last%>, <%/-last%><%/consumes%>}
+localVarHttpContentTypes := []string{<%#consumes%>"<%&mediaType%>"<%^-last%>, <%/-last%><%/consumes%>}
 <%={{ }}=%>
+{{#MultipleRequestMediaType}}
 
-	// set Content-Type header
-	localVarHttpContentType := selectHeaderContentType(localVarHttpContentTypes)
-	if localVarHttpContentType != "" {
-		localVarHeaderParams["Content-Type"] = localVarHttpContentType
-	}
+    // validate Content-Type
+    if contains(localVarHttpContentTypes, contentType) {
+    localVarHeaderParams["Content-Type"] = contentType
+    } else {
+    return {{#returnType}}localVarReturnValue, {{/returnType}}nil, reportError("%s is not valid Content-Type in {{{nickname}}}", contentType)
+    }
+{{/MultipleRequestMediaType}}
+{{^MultipleRequestMediaType}}
+    localVarHeaderParams["Content-Type"] = localVarHttpContentTypes[0] // use the first content type specified in 'consumes'
+{{/MultipleRequestMediaType}}
 
 	// to determine the Accept header
 {{=<% %>=}}
@@ -269,10 +240,6 @@ func (a *{{{classname}}}Service) {{{nickname}}}(ctx context.Context{{#hasParams}
 {{/required}}
 {{/bodyParams}}
 {{/hasBodyParam}}
-{{#requestBodyRequired}}
-	// point to the multipart struct object
-	localVarPostBody = &multipart{{{nickname}}}
-{{/requestBodyRequired}}
 
 {{#authMethods}}
 {{#isApiKey}}
@@ -297,7 +264,7 @@ func (a *{{{classname}}}Service) {{{nickname}}}(ctx context.Context{{#hasParams}
 {{/isKeyInCookie}}
 {{/isApiKey}}
 {{/authMethods}}
-	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFormFileName, localVarFileName, localVarFileBytes, contentTypeMap)
+	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFormFileName, localVarFileName, localVarFileBytes)
 	if err != nil {
 		return {{#returnType}}localVarReturnValue, {{/returnType}}nil, err
 	}
@@ -313,40 +280,37 @@ func (a *{{{classname}}}Service) {{{nickname}}}(ctx context.Context{{#hasParams}
 		return {{#returnType}}localVarReturnValue, {{/returnType}}localVarHttpResponse, err
 	}
 
-	if localVarHttpResponse.StatusCode >= 300 {
-		newErr := GenericOpenAPIError{
-			body:  localVarBody,
-			error: localVarHttpResponse.Status,
-		}
-		{{#responses}}
-		{{#dataType}}
-		if localVarHttpResponse.StatusCode == {{{code}}} {
-			var v {{{dataType}}}
-			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
-			if err != nil {
-				newErr.error = err.Error()
-				return {{#returnType}}localVarReturnValue, {{/returnType}}localVarHttpResponse, newErr
-			}
-			newErr.model = v
-			return {{#returnType}}localVarReturnValue, {{/returnType}}localVarHttpResponse, newErr
-		}
-		{{/dataType}}
-		{{/responses}}
-		return {{#returnType}}localVarReturnValue, {{/returnType}}localVarHttpResponse, newErr
-	}
+    apiError := GenericOpenAPIError{
+    body:  localVarBody,
+    error: localVarHttpResponse.Status,
+    }
 
-	{{#returnType}}
-	err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
-	if err != nil {
-		newErr := GenericOpenAPIError{
-			body:  localVarBody,
-			error: err.Error(),
-		}
-		return {{#returnType}}localVarReturnValue, {{/returnType}}localVarHttpResponse, newErr
-	}
-
-	{{/returnType}}
-	return {{#returnType}}localVarReturnValue, {{/returnType}}localVarHttpResponse, nil
+    switch localVarHttpResponse.StatusCode {
+    {{#responses}}
+    {{#dataType}}
+        case {{{code}}}:
+        {{#SuccessResponse}}
+            err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
+            if err != nil {
+                apiError.error = err.Error()
+            }
+            return {{#returnType}}localVarReturnValue, {{/returnType}}localVarHttpResponse, apiError
+        {{/SuccessResponse}}
+        {{^SuccessResponse}}
+            var v {{{dataType}}}
+            err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
+            if err != nil {
+                apiError.error = err.Error()
+                return {{#returnType}}localVarReturnValue, {{/returnType}}localVarHttpResponse, apiError
+            }
+            apiError.model = v
+            return {{#returnType}}localVarReturnValue, {{/returnType}}localVarHttpResponse, apiError
+        {{/SuccessResponse}}
+    {{/dataType}}
+    {{/responses}}
+    default:
+        return {{#returnType}}localVarReturnValue, {{/returnType}}localVarHttpResponse, reportError("%d is not a valid status code in {{{nickname}}}", localVarHttpResponse.StatusCode)
+    }
 }
 {{/operation}}
 {{/operations}}

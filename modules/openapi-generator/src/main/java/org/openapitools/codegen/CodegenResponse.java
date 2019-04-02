@@ -43,6 +43,16 @@ public class CodegenResponse {
         return "0".equals(code) || "default".equals(code);
     }
 
+    /**
+     * Check if status code is 2xx Success
+     *
+     * @return true if status code is 2xx Success, false otherwise
+     */
+    public boolean isSuccessResponse() {
+        int statusCode = Integer.parseInt(code);
+        return statusCode >= 200 && statusCode < 300;
+    }
+
     @Override
     public String toString() {
         return "CodegenResponse{" +

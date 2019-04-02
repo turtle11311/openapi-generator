@@ -19,6 +19,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+    "log"
 	"time"
 	"unicode/utf8"
 
@@ -52,10 +53,11 @@ type service struct {
 	client *APIClient
 }
 
-type MultipartInfo struct {
-	Body interface{}
-	Boundary string
-	ContentTypeMap map[string]string
+type MultiPart  []Part
+
+type Part struct {
+    Header      textproto.MIMEHeader
+    Payload     []byte
 }
 
 // NewAPIClient creates a new API client. Requires a userAgent string describing your application.
@@ -83,17 +85,6 @@ func NewAPIClient(cfg *Configuration) *APIClient {
 
 func atoi(in string) (int, error) {
 	return strconv.Atoi(in)
-}
-
-// selectHeaderContentType select a content type from the available list.
-func selectHeaderContentType(contentTypes []string) string {
-	if len(contentTypes) == 0 {
-		return ""
-	}
-	if contains(contentTypes, "application/json") {
-		return "application/json"
-	}
-	return contentTypes[0] // use the first content type specified in 'consumes'
 }
 
 // selectHeaderAccept join all accept types and return
@@ -177,8 +168,7 @@ func (c *APIClient) prepareRequest(
 	formParams url.Values,
 	formFileName string,
 	fileName string,
-	fileBytes []byte,
-	contentTypeMap map[string]string) (localVarRequest *http.Request, err error) {
+	fileBytes []byte) (localVarRequest *http.Request, err error) {
 
 	var body *bytes.Buffer
 
@@ -190,37 +180,30 @@ func (c *APIClient) prepareRequest(
 			headerParams["Content-Type"] = contentType
 		}
 
-		if strings.HasPrefix(headerParams["Content-Type"], "multipart/related") {
+		if strings.HasPrefix(contentType, "multipart/related") {
 			body = &bytes.Buffer{}
 			mpWriter := multipart.NewWriter(body)
 			headerParams["Content-Type"] = "multipart/related; boundary=" + mpWriter.Boundary()
 			headerParams["boundary"] = mpWriter.Boundary()
 
-			operationStructTypeOf := reflect.TypeOf(postBody).Elem()
-			operationStructValueOf := reflect.ValueOf(postBody).Elem()
+            multipartBody := postBody.(MultiPart)
 
-			for i := 0; i < operationStructValueOf.NumField(); i++ {
-				field := operationStructTypeOf.Field(i)
-				value := operationStructValueOf.Field(i)
-				// fmt.Printf("%s: %v (map:%s) = %v\n", field.Name, field.Type, ctMap[field.Name], value)
+            for _, part := range multipartBody {
+                writer, err := mpWriter.CreatePart(part.Header)
+                if err != nil {
+                    panic(err)
+                }
 
-				part := make(textproto.MIMEHeader)
-				partType := contentTypeMap[field.Name]
-				part.Set("Content-Type", partType)
-				writer, err := mpWriter.CreatePart(part)
-				if err != nil {
-					panic(err)
-				}
-
-				if partType == "application/json" {
-					json.NewEncoder(writer).Encode(value.Interface())
-				} else {
-					writer.Write(value.Bytes())
-				}
+                _, err = writer.Write(part.Payload)
+                if err != nil {
+                    log.Println(err)
+                }
 			}
 
-			mpWriter.Close()
-			// fmt.Println(body.String())
+			err = mpWriter.Close()
+            if err != nil {
+                log.Println(err)
+            }
 		} else {
 			body, err = setBody(postBody, contentType)
 			if err != nil {
