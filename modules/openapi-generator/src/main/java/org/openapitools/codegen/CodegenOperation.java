@@ -59,7 +59,7 @@ public class CodegenOperation {
     public String operationIdLowerCase; // for markdown documentation
     public String operationIdCamelCase; // for class names
     public String operationIdSnakeCase;
-    public Boolean requestBodyRequired;
+    public Boolean requestBodyRequired, hasMultipartRelated;
 
     /**
      * Check if there's at least one parameter

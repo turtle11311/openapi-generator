@@ -67,17 +67,8 @@ type {{{nickname}}}Opts struct {
 }
 {{/hasOptionalParams}}
 
-{{#requestBodyRequired}}
-{{#hasBodyParam}}
-type Multipart{{{nickname}}} struct {
-{{#bodyParams}}
-    {{captialBaseName}} {{dataType}}
-{{/bodyParams}}
-}
-{{/hasBodyParam}}
-{{/requestBodyRequired}}
 
-func (a *{{{classname}}}Service) {{{nickname}}}(ctx context.Context{{#multipleRequestMediaType}}, contentType string{{/multipleRequestMediaType}}{{#hasParams}}, {{/hasParams}}{{#allParams}}{{#required}}{{paramName}} {{{dataType}}}{{#hasMore}}, {{/hasMore}}{{/required}}{{/allParams}}{{#hasOptionalParams}}localVarOptionals *{{{nickname}}}Opts{{/hasOptionalParams}}) ({{#returnType}}{{{returnType}}}, {{/returnType}}*http.Response, error) {
+func (a *{{{classname}}}Service) {{{nickname}}}(ctx context.Context{{#multipleRequestMediaType}}, contentType string{{/multipleRequestMediaType}}{{#allParams}}{{#required}}, {{paramName}} {{{dataType}}}{{/required}}{{/allParams}}{{#hasMultipartRelated}}, mprParts []MultipartRelatedPart{{/hasMultipartRelated}}{{#hasOptionalParams}}, localVarOptionals *{{{nickname}}}Opts{{/hasOptionalParams}}) ({{#returnType}}{{{returnType}}}, {{/returnType}}*http.Response, error) {
 	var (
 		localVarHttpMethod   = strings.ToUpper("{{httpMethod}}")
 		localVarPostBody     interface{}
@@ -88,16 +79,6 @@ func (a *{{{classname}}}Service) {{{nickname}}}(ctx context.Context{{#multipleRe
 		localVarReturnValue  {{{returnType}}}
 		{{/returnType}}
 	)
-	
-	// contentTypeMap
-	var contentTypeMap map[string]string 
-    {{#hasBodyParam}}
-    contentTypeMap = map[string]string{
-    {{#bodyParams}}
-        "{{captialBaseName}}": "{{contentType}}",
-    {{/bodyParams}}
-    }
-    {{/hasBodyParam}}
 
 	// create path and map variables
 	localVarPath := a.client.cfg.BasePath + "{{{path}}}"{{#pathParams}}
@@ -193,21 +174,6 @@ func (a *{{{classname}}}Service) {{{nickname}}}(ctx context.Context{{#multipleRe
 		localVarHeaderParams["Accept"] = localVarHttpHeaderAccept
 	}
 
-{{#requestBodyRequired}}
-    // put values into multipartRelated structure
-    var multipart{{{nickname}}} Multipart{{{nickname}}}
-    _ = multipart{{{nickname}}}
-{{#hasBodyParam}}
-    if localVarHeaderParams["Content-Type"] == "multipart/related" {
-    {{#bodyParams}}
-    {{#required}}
-        multipart{{{nickname}}}.{{captialBaseName}} = {{baseName}}
-    {{/required}}
-    {{/bodyParams}}
-    }
-{{/hasBodyParam}}
-{{/requestBodyRequired}}
-
 {{#hasHeaderParams}}
 {{#headerParams}}
 	{{#required}}
@@ -275,14 +241,15 @@ func (a *{{{classname}}}Service) {{{nickname}}}(ctx context.Context{{#multipleRe
 		localVarPostBody = &localVarOptional{{vendorExtensions.x-exportParamName}}
 		{{/isPrimitiveType}}
 	}
-
 {{/required}}
 {{/bodyParams}}
 {{/hasBodyParam}}
-{{#requestBodyRequired}}
-	// point to the multipart struct object
-	localVarPostBody = &multipart{{{nickname}}}
-{{/requestBodyRequired}}
+
+{{#hasMultipartRelated}}
+	if localVarHeaderParams["Content-Type"] == "multipart/related" {
+		localVarPostBody = &mprParts
+	}
+{{/hasMultipartRelated}}
 
 {{#authMethods}}
 {{#isApiKey}}
@@ -307,7 +274,7 @@ func (a *{{{classname}}}Service) {{{nickname}}}(ctx context.Context{{#multipleRe
 {{/isKeyInCookie}}
 {{/isApiKey}}
 {{/authMethods}}
-	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFormFileName, localVarFileName, localVarFileBytes, contentTypeMap)
+	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFormFileName, localVarFileName, localVarFileBytes)
 	if err != nil {
 		return {{#returnType}}localVarReturnValue, {{/returnType}}nil, err
 	}
@@ -327,6 +294,10 @@ func (a *{{{classname}}}Service) {{{nickname}}}(ctx context.Context{{#multipleRe
         body:  localVarBody,
         error: localVarHttpResponse.Status,
     }
+
+	if localVarHttpResponse.Header.Get("Content-Type") == "multipart/related" {
+		return {{#returnType}}localVarReturnValue, {{/returnType}}localVarHttpResponse, apiError
+	}
 
     switch localVarHttpResponse.StatusCode {
     {{#responses}}

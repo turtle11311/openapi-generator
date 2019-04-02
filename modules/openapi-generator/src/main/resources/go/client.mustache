@@ -52,10 +52,9 @@ type service struct {
 	client *APIClient
 }
 
-type MultipartInfo struct {
-	Body interface{}
-	Boundary string
-	ContentTypeMap map[string]string
+type MultipartRelatedPart struct {
+	Header  map[string]string
+	Payload []byte
 }
 
 // NewAPIClient creates a new API client. Requires a userAgent string describing your application.
@@ -177,8 +176,7 @@ func (c *APIClient) prepareRequest(
 	formParams url.Values,
 	formFileName string,
 	fileName string,
-	fileBytes []byte,
-	contentTypeMap map[string]string) (localVarRequest *http.Request, err error) {
+	fileBytes []byte) (localVarRequest *http.Request, err error) {
 
 	var body *bytes.Buffer
 
@@ -196,31 +194,24 @@ func (c *APIClient) prepareRequest(
 			headerParams["Content-Type"] = "multipart/related; boundary=" + mpWriter.Boundary()
 			headerParams["boundary"] = mpWriter.Boundary()
 
-			operationStructTypeOf := reflect.TypeOf(postBody).Elem()
-			operationStructValueOf := reflect.ValueOf(postBody).Elem()
-
-			for i := 0; i < operationStructValueOf.NumField(); i++ {
-				field := operationStructTypeOf.Field(i)
-				value := operationStructValueOf.Field(i)
-				// fmt.Printf("%s: %v (map:%s) = %v\n", field.Name, field.Type, ctMap[field.Name], value)
-
+			mprBody := *(postBody.(*[]MultipartRelatedPart))
+			for i := 0; i < len(mprBody); i++ {
 				part := make(textproto.MIMEHeader)
-				partType := contentTypeMap[field.Name]
-				part.Set("Content-Type", partType)
+
+				for k, v := range mprBody[i].Header {
+					// fmt.Printf("key[%s] value[%s]\n", k, v)
+					part.Set(k, v)
+				}
+
 				writer, err := mpWriter.CreatePart(part)
 				if err != nil {
 					panic(err)
 				}
-
-				if partType == "application/json" {
-					json.NewEncoder(writer).Encode(value.Interface())
-				} else {
-					writer.Write(value.Bytes())
-				}
+				writer.Write(mprBody[i].Payload)
 			}
-
 			mpWriter.Close()
-			// fmt.Println(body.String())
+
+			//fmt.Println(body.String())
 		} else {
 			body, err = setBody(postBody, contentType)
 			if err != nil {

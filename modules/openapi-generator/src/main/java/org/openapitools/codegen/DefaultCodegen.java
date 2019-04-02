@@ -2481,13 +2481,13 @@ DefaultCodegen implements CodegenConfig {
             op.requestBodyRequired = requestBody.getRequired();
         }
 
-        Boolean hasMultipartRelated = false;
+        op.hasMultipartRelated = false;
         if (requestBody != null && requestBody.getContent() != null) {
             int contentSize = requestBody.getContent().keySet().size();
             for(int i = 1; i <= contentSize; i++) {
                 String content = new ArrayList<>(requestBody.getContent().keySet()).get(i-1);
                 if ("multipart/related".equalsIgnoreCase(content))
-                    hasMultipartRelated = true;
+                    op.hasMultipartRelated = true;
             }
         }
 
@@ -2505,7 +2505,7 @@ DefaultCodegen implements CodegenConfig {
                         allParams.add(cp.copy());
                     }
                 }
-            } else if (hasMultipartRelated) {
+            } /*else if (op.hasMultipartRelated) {
                 // process form parameters
                 bodyParams = fromRequestBodyToBodyParameters(requestBody, imports);
                 for (CodegenParameter cp : bodyParams) {
@@ -2517,7 +2517,8 @@ DefaultCodegen implements CodegenConfig {
                         allParams.add(cp.copy());
                     }
                 }
-            } else {
+            } */
+            else {
                 // process body parameter
                 requestBody = ModelUtils.getReferencedRequestBody(this.openAPI, requestBody);
 
