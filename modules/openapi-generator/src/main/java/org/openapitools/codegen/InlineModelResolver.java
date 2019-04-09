@@ -109,8 +109,17 @@ public class InlineModelResolver {
         for (Parameter parameter : parameters) {
             Parameter referencedParameter = ModelUtils.getReferencedParameter(openapi, parameter);
             Schema parameterModel = ModelUtils.getReferencedSchema(openapi, referencedParameter.getSchema());
-            String parameterModelName = resolveModelName(parameterModel.getTitle(),
-                    parameterModel.getName() + parameter.getName());
+            if (parameterModel == null) {
+                parameterModel = referencedParameter
+                        .getContent().values().iterator().next().getSchema();
+                referencedParameter.setContent(null);
+                referencedParameter.setSchema(parameterModel);
+            }
+            String title = parameterModel.getTitle();
+            String s = parameterModel.getName() +
+                    parameter.getName();
+            String parameterModelName = resolveModelName(title,
+                    s);
             flattenSchema(parameterModel, parameterModelName);
         }
     }

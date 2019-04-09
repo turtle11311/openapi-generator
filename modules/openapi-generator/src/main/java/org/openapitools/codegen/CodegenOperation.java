@@ -239,8 +239,8 @@ public class CodegenOperation {
      *
      * @return true if request MediaType greater then 1
      */
-    private boolean isMultipleRequestMediaType() {
-        return consumes.size() > 1;
+    public boolean isMultipleRequestMediaType() {
+        return consumes != null && consumes.size() > 1;
     }
 
     /**

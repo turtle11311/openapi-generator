@@ -37,6 +37,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 
@@ -287,7 +288,8 @@ public class ModelUtils {
     }
 
     public static String getSimpleRef(String ref) {
-        if (ref.startsWith("#/components/")) {
+        Pattern refPattern = Pattern.compile("((\\./)?.*)?#/(components|definitions)/.*");
+        if (refPattern.matcher(ref).matches()) {
             ref = ref.substring(ref.lastIndexOf("/") + 1);
         } else if (ref.startsWith("#/definitions/")) {
             ref = ref.substring(ref.lastIndexOf("/") + 1);
